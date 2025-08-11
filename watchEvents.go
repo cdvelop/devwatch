@@ -63,30 +63,27 @@ func (h *DevWatch) watchEvents() {
 							}
 						} else {
 							// Handle file changes (existing logic)
+
 							extension := filepath.Ext(event.Name)
-							// fmt.Println("extension:", extension, "File Event:", event)
-							isFrontend, isBackend := h.GoFileIsType(fileName)
-
 							switch extension {
-
 							case ".css", ".js", ".html":
 								err = h.FileEventAssets.NewFileEvent(fileName, extension, event.Name, eventType)
-
 							case ".go":
-
-								if isFrontend { // compilar a wasm y recargar el navegador
-									// fmt.Fprintln(h.Writer, "Go File IsFrontend")
-									err = h.FileEventWASM.NewFileEvent(fileName, extension, event.Name, eventType)
-								} else if isBackend { // compilar servidor y recargar el navegador
-									// fmt.Fprintln(h.Writer, "Go File IsBackend")
-									err = h.FileEventGO.NewFileEvent(fileName, extension, event.Name, eventType)
-
-								} else { // ambos compilar servidor, compilar a wasm (según modulo) y recargar el navegador
-									// fmt.Fprintln(h.Writer, "Go File Shared")
-									err = h.FileEventWASM.NewFileEvent(fileName, extension, event.Name, eventType)
-									if err == nil {
-										err = h.FileEventGO.NewFileEvent(fileName, extension, event.Name, eventType)
+								handlerFound := false
+								for _, handler := range h.FilesEventGO {
+									isMine, herr := h.depFinder.ThisFileIsMine(handler, fileName, event.Name, eventType)
+									if herr != nil {
+										// Log error but continue to next handler
+										fmt.Fprintln(h.Writer, "Watch handler check error:", herr)
+										continue
 									}
+									if isMine {
+										err = handler.NewFileEvent(fileName, extension, event.Name, eventType)
+										handlerFound = true
+									}
+								}
+								if !handlerFound {
+									fmt.Fprintln(h.Writer, "No handler found for go file: "+fileName)
 								}
 
 							default:

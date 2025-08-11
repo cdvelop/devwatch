@@ -25,10 +25,7 @@ func (h *DevWatch) FileWatcherStart(wg *sync.WaitGroup) {
 	fmt.Fprintln(h.Writer, "Listening for File Changes ...")
 	// Wait for exit signal after watching is active
 
-	select {
-	case <-h.ExitChan:
-		h.watcher.Close()
-		wg.Done()
-		return
-	}
+	<-h.ExitChan
+	h.watcher.Close()
+	wg.Done()
 }
