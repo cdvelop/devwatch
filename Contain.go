@@ -1,7 +1,6 @@
 package devwatch
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -11,8 +10,6 @@ func (h *DevWatch) Contain(path string) bool {
 	// Normaliza la ruta a formato Unix para compatibilidad multiplataforma
 	// Convertir manualmente las barras invertidas a barras normales
 	normPath := strings.ReplaceAll(path, "\\", "/")
-	fmt.Printf("DEBUG: Original path: %s\n", path)
-	fmt.Printf("DEBUG: Normalized path: %s\n", normPath)
 
 	// ignore hidden files
 	if strings.HasPrefix(filepath.Base(normPath), ".") {
@@ -37,16 +34,13 @@ func (h *DevWatch) Contain(path string) bool {
 
 	// Split the normalized path into components
 	pathParts := strings.Split(normPath, "/")
-	fmt.Printf("DEBUG: Path parts: %v\n", pathParts)
 
 	// Check each part of the path against ignored files/directories
 	for _, part := range pathParts {
 		if part == "" {
 			continue
 		}
-		fmt.Printf("DEBUG: Checking part: %s\n", part)
 		if _, exists := h.no_add_to_watch[part]; exists {
-			fmt.Printf("DEBUG: Found ignored part: %s\n", part)
 			return true
 		}
 	}
