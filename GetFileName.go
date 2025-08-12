@@ -12,16 +12,33 @@ func GetFileName(path string) (string, error) {
 		return "", errors.New("GetFileName empty path")
 	}
 
-	// Check if path ends with a separator
+	// Check if path ends with a separator (either / or \)
 	if len(path) > 0 && (path[len(path)-1] == '/' || path[len(path)-1] == '\\') {
 		return "", errors.New("GetFileName invalid path: ends with separator")
 	}
 
-	fileName := filepath.Base(path)
+	// Normalize backslashes to slashes for cross-platform compatibility
+	normPath := path
+	for i := 0; i < len(normPath); i++ {
+		if normPath[i] == '\\' {
+			// Replace all backslashes with slashes
+			normPath = ""
+			for j := 0; j < len(path); j++ {
+				if path[j] == '\\' {
+					normPath += "/"
+				} else {
+					normPath += string(path[j])
+				}
+			}
+			break
+		}
+	}
+
+	fileName := filepath.Base(normPath)
 	if fileName == "." || fileName == string(filepath.Separator) {
 		return "", errors.New("GetFileName invalid path")
 	}
-	if len(path) > 0 && path[len(path)-1] == filepath.Separator {
+	if len(normPath) > 0 && normPath[len(normPath)-1] == filepath.Separator {
 		return "", errors.New("GetFileName invalid path")
 	}
 

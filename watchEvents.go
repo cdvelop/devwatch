@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -65,9 +66,16 @@ func (h *DevWatch) watchEvents() {
 							// Handle file changes (existing logic)
 
 							extension := filepath.Ext(event.Name)
-							switch extension {
-							case ".css", ".js", ".html":
+							handled := false
+							if slices.Contains(h.supportedAssetsExtensions, extension) {
 								err = h.FileEventAssets.NewFileEvent(fileName, extension, event.Name, eventType)
+								handled = true
+							}
+							if handled {
+								// already handled as asset
+								break
+							}
+							switch extension {
 							case ".go":
 								handlerFound := false
 								for _, handler := range h.FilesEventGO {

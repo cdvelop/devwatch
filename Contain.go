@@ -1,14 +1,21 @@
 package devwatch
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
 
 func (h *DevWatch) Contain(path string) bool {
 
+	// Normaliza la ruta a formato Unix para compatibilidad multiplataforma
+	// Convertir manualmente las barras invertidas a barras normales
+	normPath := strings.ReplaceAll(path, "\\", "/")
+	fmt.Printf("DEBUG: Original path: %s\n", path)
+	fmt.Printf("DEBUG: Normalized path: %s\n", normPath)
+
 	// ignore hidden files
-	if strings.HasPrefix(filepath.Base(path), ".") {
+	if strings.HasPrefix(filepath.Base(normPath), ".") {
 		return true
 	}
 
@@ -24,29 +31,30 @@ func (h *DevWatch) Contain(path string) bool {
 	}
 
 	// Check for exact match against the full paths in the ignore list
-	if _, exists := h.no_add_to_watch[path]; exists {
+	if _, exists := h.no_add_to_watch[normPath]; exists {
 		return true
 	}
 
-	// Split the path into components
-	pathParts := strings.SplitSeq(filepath.ToSlash(path), "/")
+	// Split the normalized path into components
+	pathParts := strings.Split(normPath, "/")
+	fmt.Printf("DEBUG: Path parts: %v\n", pathParts)
 
 	// Check each part of the path against ignored files/directories
-	for part := range pathParts {
+	for _, part := range pathParts {
 		if part == "" {
 			continue
 		}
-
+		fmt.Printf("DEBUG: Checking part: %s\n", part)
 		if _, exists := h.no_add_to_watch[part]; exists {
+			fmt.Printf("DEBUG: Found ignored part: %s\n", part)
 			return true
 		}
 	}
 
-	// Additionally, check for paths that start with an ignored path + separator
+	// Additionally, check for paths that start with an ignored path + separator (usando '/' universalmente)
 	for ignoredPath := range h.no_add_to_watch {
-		// Check if the current path starts with an ignored path + separator
-		// This prevents watching subdirectories of ignored directories (like .git/hooks)
-		if strings.HasPrefix(path, ignoredPath+string(filepath.Separator)) {
+		ignoredNorm := filepath.ToSlash(ignoredPath)
+		if strings.HasPrefix(normPath, ignoredNorm+"/") {
 			return true
 		}
 	}

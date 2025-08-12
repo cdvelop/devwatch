@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 func (h *DevWatch) InitialRegistration() {
@@ -35,8 +36,7 @@ func (h *DevWatch) InitialRegistration() {
 						}
 					} // MEMORY REGISTER FILES IN HANDLERS
 					extension := filepath.Ext(path)
-					switch extension {
-					case ".html", ".css", ".js", ".svg":
+					if slices.Contains(h.supportedAssetsExtensions, extension) {
 						err = h.FileEventAssets.NewFileEvent(fileName, extension, path, "create")
 					}
 				}
