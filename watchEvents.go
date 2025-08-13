@@ -33,6 +33,9 @@ func (h *DevWatch) watchEvents() {
 			// Restore debouncer with shorter timeout - 100ms is enough for file operations to complete,
 			// but short enough to not miss important events like CREATE followed by WRITE
 			if lastTime, ok := lastActions[event.Name]; !ok || time.Since(lastTime) > 100*time.Millisecond {
+				// Update the last action time for debouncing FIRST
+				lastActions[event.Name] = time.Now()
+
 				// Restablece el temporizador de recarga de navegador
 				reloadBrowserTimer.Stop()
 
@@ -110,8 +113,7 @@ func (h *DevWatch) watchEvents() {
 							}
 						}
 					}
-					// Update the last action time for debouncing
-					lastActions[event.Name] = time.Now()
+					// lastActions ya se actualiza al inicio del bloque if
 				}
 			}
 

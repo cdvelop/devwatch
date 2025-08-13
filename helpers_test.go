@@ -25,6 +25,38 @@ func (f *FakeGoFileHandler) MainFilePath() string      { return "fake/main.go" }
 func (f *FakeGoFileHandler) Name() string              { return "FakeGoHandler" }
 func (f *FakeGoFileHandler) UnobservedFiles() []string { return []string{"fake_output.exe"} }
 
+// CountingFileEvent counts how many times NewFileEvent is called
+type CountingFileEvent struct {
+	CallCount *int
+	Calls     *[]string // Store call details for debugging
+}
+
+func (f *CountingFileEvent) NewFileEvent(fileName, extension, filePath, event string) error {
+	*f.CallCount++
+	*f.Calls = append(*f.Calls, fileName+" "+extension+" "+event)
+	return nil
+}
+
+// Helper to create a DevWatch instance for duplication tests
+func NewTestDevWatchForDuplication(t *testing.T, tempDir string, assetCallCount *int, assetCalls *[]string) (*DevWatch, *fsnotify.Watcher) {
+	config := &WatchConfig{
+		AppRootDir:      tempDir,
+		FileEventAssets: &CountingFileEvent{CallCount: assetCallCount, Calls: assetCalls},
+		FilesEventGO:    []GoFileHandler{},           // Empty for this test
+		BrowserReload:   func() error { return nil }, // No browser reload needed for this test
+		Writer:          os.Stdout,
+		ExitChan:        make(chan bool, 1),
+	}
+	w := New(config)
+	w.supportedAssetsExtensions = []string{".html", ".css", ".js"}
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		t.Fatalf("failed to create watcher: %v", err)
+	}
+	w.watcher = watcher
+	return w, watcher
+}
+
 // Helper to create temp files and go.mod for tests
 func CreateTestFiles(t *testing.T, tempDir string) (cssFile, goFile string) {
 	cssFile = tempDir + "/file.css"

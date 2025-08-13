@@ -1,0 +1,171 @@
+package devwatch
+
+import (
+	"os"
+	"sync"
+	"testing"
+	"time"
+)
+
+// Test que usa el watcher real con archivos reales para detectar duplicación
+func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Crear archivos de test
+	_, _ = CreateTestFiles(t, tempDir)
+	htmlFile := tempDir + "/index.html"
+	if err := os.WriteFile(htmlFile, []byte("<!DOCTYPE html><html></html>"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Contadores para detectar duplicación
+	assetCallCount := 0
+	assetCalls := []string{}
+	reloadCount := 0
+	reloadCalled := make(chan struct{}, 10) // Buffer grande para capturar duplicados
+
+	// Crear configuración personalizada para el test
+	config := &WatchConfig{
+		AppRootDir: tempDir,
+		FileEventAssets: &CountingFileEvent{
+			CallCount: &assetCallCount,
+			Calls:     &assetCalls,
+		},
+		FilesEventGO: []GoFileHandler{},
+		BrowserReload: func() error {
+			reloadCount++
+			reloadCalled <- struct{}{}
+			return nil
+		},
+		Writer:   os.Stdout,
+		ExitChan: make(chan bool, 1),
+	}
+
+	w := New(config)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	// Iniciar el watcher real
+	go w.FileWatcherStart(&wg)
+
+	// Esperar a que el watcher esté listo
+	time.Sleep(200 * time.Millisecond)
+
+	// Escribir al archivo REAL con eventos muy rápidos para probar debouncing
+	t.Log("Writing to real HTML file - rapid events")
+	if err := os.WriteFile(htmlFile, []byte("<!DOCTYPE html><html><body>Modified 1</body></html>"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Escribir inmediatamente (debería ser filtrado por debouncing)
+	time.Sleep(50 * time.Millisecond) // Menos que el debounce de 100ms
+	if err := os.WriteFile(htmlFile, []byte("<!DOCTYPE html><html><body>Modified 2</body></html>"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Esperar procesamiento del primer batch
+	time.Sleep(200 * time.Millisecond)
+
+	// Escribir otra vez después del debounce
+	t.Log("Writing to HTML file again after debounce period")
+	if err := os.WriteFile(htmlFile, []byte("<!DOCTYPE html><html><body>Modified 3</body></html>"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Esperar procesamiento
+	time.Sleep(300 * time.Millisecond)
+
+	// Cerrar el watcher
+	w.ExitChan <- true
+	wg.Wait()
+
+	// Analizar resultados
+	t.Logf("Asset handler was called %d times", assetCallCount)
+	t.Logf("Asset calls details: %v", assetCalls)
+	t.Logf("Browser reload was called %d times", reloadCount)
+
+	// Verificar duplicación
+	t.Logf("Expected: 2 asset calls (one for rapid events batch, one for delayed event)")
+	if assetCallCount == 2 {
+		t.Log("✓ Asset handler called exactly twice - debouncing working correctly")
+	} else if assetCallCount > 2 {
+		t.Errorf("BUG DETECTED: Asset handler was called %d times, expected 2. Debouncing not working properly!", assetCallCount)
+		t.Errorf("Duplicate calls were: %v", assetCalls)
+	} else {
+		t.Errorf("Asset handler was called only %d times, expected 2. Some events may be missing!", assetCallCount)
+	}
+}
+
+// Test con múltiples tipos de archivos usando el watcher real
+func TestWatchEvents_RealMultipleFiles_DuplicateBug(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Crear estructura de archivos
+	cssFile, _ := CreateTestFiles(t, tempDir)
+	htmlFile := tempDir + "/index.html"
+	jsFile := tempDir + "/script.js"
+
+	if err := os.WriteFile(htmlFile, []byte("<!DOCTYPE html><html></html>"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(jsFile, []byte("console.log('test');"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	assetCallCount := 0
+	assetCalls := []string{}
+	reloadCount := 0
+	reloadCalled := make(chan struct{}, 10)
+
+	w, _ := NewTestDevWatchForDuplication(t, tempDir, &assetCallCount, &assetCalls)
+
+	// Override the browser reload function to track reload calls
+	w.BrowserReload = func() error {
+		reloadCount++
+		reloadCalled <- struct{}{}
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	// Start the watcher
+	go w.FileWatcherStart(&wg)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Escribir a múltiples archivos
+	files := []string{htmlFile, cssFile, jsFile}
+	contents := []string{
+		"<!DOCTYPE html><html><body>Updated</body></html>",
+		"body { color: red; }",
+		"console.log('updated');",
+	}
+
+	for i, file := range files {
+		t.Logf("Writing to %s", file)
+		if err := os.WriteFile(file, []byte(contents[i]), 0644); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(100 * time.Millisecond) // Separar los eventos
+	}
+
+	time.Sleep(500 * time.Millisecond) // Esperar procesamiento final
+
+	w.ExitChan <- true
+	wg.Wait()
+
+	t.Logf("Total asset handler calls: %d (expected: 3)", assetCallCount)
+	t.Logf("Asset calls details: %v", assetCalls)
+
+	expectedCalls := 3
+	if assetCallCount == expectedCalls {
+		t.Log("✓ Asset handler called correct number of times")
+	} else if assetCallCount > expectedCalls {
+		t.Errorf("BUG DETECTED: Asset handler called %d times, expected %d. Possible duplicate events!", assetCallCount, expectedCalls)
+		t.Errorf("All calls: %v", assetCalls)
+	} else {
+		t.Errorf("Asset handler called %d times, expected %d. Some events may be missing!", assetCallCount, expectedCalls)
+	}
+}
