@@ -98,15 +98,15 @@ The `godepfind` instance is injected as a dependency:
 When dependency finder fails to determine file type:
 - **Decision**: Silent logging to Writer + treat as both Frontend + Backend
 - **Rationale**: Non-disruptive development workflow
-- **Result**: Browser will reload even if classification fails, no execution interruption
+- **Result**: DevBrowser will reload even if classification fails, no execution interruption
 
-### 5. Browser Reload Logic
+### 5. DevBrowser Reload Logic
 
-- **Frontend Assets only** (via FileEventAssets): Browser reload
-- **WASM only** (via FileEventWASM): Browser reload 
+- **Frontend Assets only** (via FileEventAssets): DevBrowser reload
+- **WASM only** (via FileEventWASM): DevBrowser reload 
 - **Backend only** (via FileEventGO): No browser reload
-- **WASM + Backend**: Browser reload (covers both scenarios)
-- **Error/Unknown**: Browser reload (conservative approach)
+- **WASM + Backend**: DevBrowser reload (covers both scenarios)
+- **Error/Unknown**: DevBrowser reload (conservative approach)
 
 ### 6. Folder Events
 
@@ -177,7 +177,7 @@ type WatchConfig struct {
     FileEventWASM   FileEvent   // Handles Go WASM files → browser reload
     FileEventGO     FileEvent   // Handles Go backend files → server restart
     FolderEvents    FolderEvent // Handles folder changes → architecture detection
-    BrowserReload   func() error // Browser reload function
+    BrowserReload   func() error // DevBrowser reload function
     Writer          io.Writer   // Logging output
     ExitChan        chan bool   // Exit signal
     UnobservedFiles func() []string // Files to ignore
@@ -202,7 +202,7 @@ File Change Detected
     Get File Extension
          ↓
 ┌─────────────────────┐
-│  Frontend Assets?   │ → (.css,.js,.html,.svg) → FileEventAssets → Browser Reload
+│  Frontend Assets?   │ → (.css,.js,.html,.svg) → FileEventAssets → DevBrowser Reload
 │  (.css,.js,.html)   │
 └─────────────────────┘
          ↓
@@ -226,7 +226,7 @@ File Change Detected
          ↓                           ↓
    FileEventWASM                FileEventGO
          ↓                           ↓
-   Browser Reload              No Browser Reload
+   DevBrowser Reload              No DevBrowser Reload
 ```
 
 ### Integration with Dependency Finder
@@ -370,4 +370,4 @@ watcher.Start()
 - **Unit Tests**: File classification logic with various scenarios
 - **Integration Tests**: godepfind integration with real Go projects
 - **Performance Tests**: Ensure caching provides expected speedup
-- **End-to-End Tests**: Browser reload triggers for frontend changes only
+- **End-to-End Tests**: DevBrowser reload triggers for frontend changes only

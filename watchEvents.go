@@ -72,8 +72,13 @@ func (h *DevWatch) watchEvents() {
 								handled = true
 							}
 							if handled {
-								// already handled as asset
-								break
+								// already handled as asset, skip to timer reset
+								if err != nil {
+									fmt.Fprintln(h.Writer, "Watch updating file:", err)
+								} else {
+									reloadBrowserTimer.Reset(wait)
+								}
+								continue
 							}
 							switch extension {
 							case ".go":
