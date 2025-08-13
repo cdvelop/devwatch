@@ -21,19 +21,25 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 	// Contadores para detectar duplicación
 	assetCallCount := 0
 	assetCalls := []string{}
+	var reloadMu sync.Mutex
 	reloadCount := 0
 	reloadCalled := make(chan struct{}, 10) // Buffer grande para capturar duplicados
 
+	// Crear contador thread-safe
+	countingEvent := &CountingFileEvent{
+		CallCount: &assetCallCount,
+		Calls:     &assetCalls,
+	}
+
 	// Crear configuración personalizada para el test
 	config := &WatchConfig{
-		AppRootDir: tempDir,
-		FileEventAssets: &CountingFileEvent{
-			CallCount: &assetCallCount,
-			Calls:     &assetCalls,
-		},
-		FilesEventGO: []GoFileHandler{},
+		AppRootDir:      tempDir,
+		FileEventAssets: countingEvent,
+		FilesEventGO:    []GoFileHandler{},
 		BrowserReload: func() error {
+			reloadMu.Lock()
 			reloadCount++
+			reloadMu.Unlock()
 			reloadCalled <- struct{}{}
 			return nil
 		},
@@ -80,20 +86,25 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 	w.ExitChan <- true
 	wg.Wait()
 
-	// Analizar resultados
-	t.Logf("Asset handler was called %d times", assetCallCount)
-	t.Logf("Asset calls details: %v", assetCalls)
-	t.Logf("Browser reload was called %d times", reloadCount)
+	// Analizar resultados de manera thread-safe
+	finalCallCount, finalCalls := countingEvent.GetCounts()
+	reloadMu.Lock()
+	finalReloadCount := reloadCount
+	reloadMu.Unlock()
+
+	t.Logf("Asset handler was called %d times", finalCallCount)
+	t.Logf("Asset calls details: %v", finalCalls)
+	t.Logf("Browser reload was called %d times", finalReloadCount)
 
 	// Verificar duplicación
 	t.Logf("Expected: 2 asset calls (one for rapid events batch, one for delayed event)")
-	if assetCallCount == 2 {
+	if finalCallCount == 2 {
 		t.Log("✓ Asset handler called exactly twice - debouncing working correctly")
-	} else if assetCallCount > 2 {
-		t.Errorf("BUG DETECTED: Asset handler was called %d times, expected 2. Debouncing not working properly!", assetCallCount)
-		t.Errorf("Duplicate calls were: %v", assetCalls)
+	} else if finalCallCount > 2 {
+		t.Errorf("BUG DETECTED: Asset handler was called %d times, expected 2. Debouncing not working properly!", finalCallCount)
+		t.Errorf("Duplicate calls were: %v", finalCalls)
 	} else {
-		t.Errorf("Asset handler was called only %d times, expected 2. Some events may be missing!", assetCallCount)
+		t.Errorf("Asset handler was called only %d times, expected 2. Some events may be missing!", finalCallCount)
 	}
 }
 
@@ -115,14 +126,17 @@ func TestWatchEvents_RealMultipleFiles_DuplicateBug(t *testing.T) {
 
 	assetCallCount := 0
 	assetCalls := []string{}
+	var reloadMu sync.Mutex
 	reloadCount := 0
 	reloadCalled := make(chan struct{}, 10)
 
-	w, _ := NewTestDevWatchForDuplication(t, tempDir, &assetCallCount, &assetCalls)
+	w, _, countingEvent := NewTestDevWatchForDuplication(t, tempDir, &assetCallCount, &assetCalls)
 
 	// Override the browser reload function to track reload calls
 	w.BrowserReload = func() error {
+		reloadMu.Lock()
 		reloadCount++
+		reloadMu.Unlock()
 		reloadCalled <- struct{}{}
 		return nil
 	}
@@ -156,16 +170,18 @@ func TestWatchEvents_RealMultipleFiles_DuplicateBug(t *testing.T) {
 	w.ExitChan <- true
 	wg.Wait()
 
-	t.Logf("Total asset handler calls: %d (expected: 3)", assetCallCount)
-	t.Logf("Asset calls details: %v", assetCalls)
+	// Analizar resultados de manera thread-safe
+	finalCallCount, finalCalls := countingEvent.GetCounts()
+	t.Logf("Total asset handler calls: %d (expected: 3)", finalCallCount)
+	t.Logf("Asset calls details: %v", finalCalls)
 
 	expectedCalls := 3
-	if assetCallCount == expectedCalls {
+	if finalCallCount == expectedCalls {
 		t.Log("✓ Asset handler called correct number of times")
-	} else if assetCallCount > expectedCalls {
-		t.Errorf("BUG DETECTED: Asset handler called %d times, expected %d. Possible duplicate events!", assetCallCount, expectedCalls)
-		t.Errorf("All calls: %v", assetCalls)
+	} else if finalCallCount > expectedCalls {
+		t.Errorf("BUG DETECTED: Asset handler called %d times, expected %d. Possible duplicate events!", finalCallCount, expectedCalls)
+		t.Errorf("All calls: %v", finalCalls)
 	} else {
-		t.Errorf("Asset handler called %d times, expected %d. Some events may be missing!", assetCallCount, expectedCalls)
+		t.Errorf("Asset handler called %d times, expected %d. Some events may be missing!", finalCallCount, expectedCalls)
 	}
 }
