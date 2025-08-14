@@ -49,7 +49,6 @@ func New(c *WatchConfig) *DevWatch {
 		WatchConfig:               c,
 		depFinder:                 godepfind.New(c.AppRootDir),
 		supportedAssetsExtensions: []string{".html", ".css", ".js", ".svg"},
-		no_add_to_watch:           make(map[string]bool),
 	}
 	return dw
 }
