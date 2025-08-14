@@ -59,10 +59,25 @@ func (h *DevWatch) watchEvents() {
 							}
 							// Add new directory to watcher
 							if eventType == "create" {
-								if err := h.watcher.Add(event.Name); err != nil {
-									fmt.Fprintln(h.Writer, "Watch: Failed to add new directory to watcher:", event.Name, err)
-								} else {
-									fmt.Fprintln(h.Writer, "Watch: New directory added to watcher:", event.Name)
+								// Create a registry map for the new directory walk
+								reg := make(map[string]struct{})
+
+								// Add the main directory first
+								if err := h.addDirectoryToWatcher(event.Name, reg); err == nil {
+									// Walk recursively to add any subdirectories that might have been created
+									// This handles cases like os.MkdirAll() where multiple directories are created at once
+									err := filepath.Walk(event.Name, func(path string, info os.FileInfo, err error) error {
+										if err != nil {
+											return nil // Continue walking even if there's an error
+										}
+										if info.IsDir() && path != event.Name && !h.Contain(path) {
+											h.addDirectoryToWatcher(path, reg)
+										}
+										return nil
+									})
+									if err != nil {
+										fmt.Fprintln(h.Writer, "Watch: Error walking new directory:", event.Name, err)
+									}
 								}
 							}
 						} else {

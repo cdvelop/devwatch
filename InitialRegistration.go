@@ -7,6 +7,45 @@ import (
 	"slices"
 )
 
+// addDirectoryToWatcher adds a directory to the watcher and handles folder events
+// This method is reused both in InitialRegistration and when new directories are created
+func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) error {
+	if _, exists := reg[path]; exists {
+		return nil // Already registered
+	}
+
+	if err := h.watcher.Add(path); err != nil {
+		fmt.Fprintln(h.Writer, "Watch: Failed to add directory to watcher:", path, err)
+		return err
+	}
+
+	reg[path] = struct{}{}
+	fmt.Fprintln(h.Writer, "Watch path added:", path)
+
+	// Get fileName once and reuse
+	fileName, err := GetFileName(path)
+	if err == nil {
+		// NOTIFY FOLDER EVENTS HANDLER FOR ARCHITECTURE DETECTION
+		if h.FolderEvents != nil {
+			err = h.FolderEvents.NewFolderEvent(fileName, path, "create")
+			if err != nil {
+				fmt.Fprintln(h.Writer, "Watch folder event error:", err)
+			}
+		}
+		// MEMORY REGISTER FILES IN HANDLERS
+		extension := filepath.Ext(path)
+		if slices.Contains(h.supportedAssetsExtensions, extension) {
+			err = h.FileEventAssets.NewFileEvent(fileName, extension, path, "create")
+		}
+	}
+
+	if err != nil {
+		fmt.Fprintln(h.Writer, "Watch addDirectoryToWatcher:", err)
+	}
+
+	return nil
+}
+
 func (h *DevWatch) InitialRegistration() {
 	fmt.Fprintln(h.Writer, "InitialRegistration APP ROOT DIR: "+h.AppRootDir)
 
@@ -18,34 +57,7 @@ func (h *DevWatch) InitialRegistration() {
 			return nil
 		}
 		if info.IsDir() && !h.Contain(path) {
-			if _, exists := reg[path]; !exists {
-				if err := h.watcher.Add(path); err != nil {
-					fmt.Fprintln(h.Writer, "Watch InitialRegistration Add watch path:", path, err)
-					return nil
-				}
-				reg[path] = struct{}{}
-				fmt.Fprintln(h.Writer, "Watch path added:", path)
-
-				// Get fileName once and reuse
-				fileName, err := GetFileName(path)
-				if err == nil { // NOTIFY FOLDER EVENTS HANDLER FOR ARCHITECTURE DETECTION
-					if h.FolderEvents != nil {
-						err = h.FolderEvents.NewFolderEvent(fileName, path, "create")
-						if err != nil {
-							fmt.Fprintln(h.Writer, "Watch InitialRegistration FolderEvents error:", err)
-						}
-					} // MEMORY REGISTER FILES IN HANDLERS
-					extension := filepath.Ext(path)
-					if slices.Contains(h.supportedAssetsExtensions, extension) {
-						err = h.FileEventAssets.NewFileEvent(fileName, extension, path, "create")
-					}
-				}
-
-				if err != nil {
-					fmt.Fprintln(h.Writer, "Watch InitialRegistration:", err)
-				}
-
-			}
+			h.addDirectoryToWatcher(path, reg)
 		}
 		return nil
 	})
