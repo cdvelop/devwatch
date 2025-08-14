@@ -3,6 +3,7 @@ package devwatch
 import (
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -20,8 +21,8 @@ func TestNewDirectoryAfterInitialization(t *testing.T) {
 	// Set up tracking variables
 	assetCallCount := 0
 	assetCalls := []string{}
-	goEventCalled := false
-	reloadCount := 0
+	var goEventCalled int32 // Use int32 for atomic operations
+	var reloadCount int64   // Use atomic for thread-safe access
 	reloadCalled := make(chan struct{}, 10)
 
 	// Create DevWatch instance using helper
@@ -32,7 +33,7 @@ func TestNewDirectoryAfterInitialization(t *testing.T) {
 	fakeGoHandler := &FakeGoFileHandler{Called: &goEventCalled}
 	dw.FilesEventGO = []GoFileHandler{fakeGoHandler}
 	dw.BrowserReload = func() error {
-		reloadCount++
+		atomic.AddInt64(&reloadCount, 1) // Thread-safe increment
 		select {
 		case reloadCalled <- struct{}{}:
 		default:
@@ -121,8 +122,8 @@ func TestNewDirectoryAfterInitialization(t *testing.T) {
 	// Additional verification: Check if the new directory was actually added to the watcher
 	// We can't directly access watcher.WatchList(), but we can test the behavior
 	t.Logf("Asset event called: %t", finalCount > initialCount)
-	t.Logf("Go event called: %t", goEventCalled)
-	t.Logf("Browser reload count: %d", reloadCount)
+	t.Logf("Go event called: %t", atomic.LoadInt32(&goEventCalled) > 0) // Thread-safe read
+	t.Logf("Browser reload count: %d", atomic.LoadInt64(&reloadCount))  // Thread-safe read
 
 	if finalCount <= initialCount {
 		t.Error("Expected new file events after creating files in new directory")
@@ -171,11 +172,12 @@ func TestDirectoryCreationWithSubdirectories(t *testing.T) {
 
 	dw.ExitChan <- true
 
-	// Check if the file in nested directory was detected
-	t.Logf("Asset calls: %v", assetCalls)
+	// Check if the file in nested directory was detected using thread-safe access
+	_, calls := dw.FileEventAssets.(*CountingFileEvent).GetCounts()
+	t.Logf("Asset calls: %v", calls)
 
 	deepFileDetected := false
-	for _, call := range assetCalls {
+	for _, call := range calls {
 		if call == "deep.css .css create" || call == "deep.css .css write" {
 			deepFileDetected = true
 			break

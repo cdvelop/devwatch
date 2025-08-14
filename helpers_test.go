@@ -3,22 +3,23 @@ package devwatch
 import (
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/fsnotify/fsnotify"
 )
 
-type FakeFileEvent struct{ Called *bool }
+type FakeFileEvent struct{ Called *int32 } // Use int32 for atomic operations
 
 func (f *FakeFileEvent) NewFileEvent(fileName, extension, filePath, event string) error {
-	*f.Called = true
+	atomic.StoreInt32(f.Called, 1) // Thread-safe write
 	return nil
 }
 
-type FakeGoFileHandler struct{ Called *bool }
+type FakeGoFileHandler struct{ Called *int32 } // Use int32 for atomic operations
 
 func (f *FakeGoFileHandler) NewFileEvent(fileName, extension, filePath, event string) error {
-	*f.Called = true
+	atomic.StoreInt32(f.Called, 1) // Thread-safe write
 	return nil
 }
 
@@ -87,13 +88,13 @@ func CreateTestFiles(t *testing.T, tempDir string) (cssFile, goFile string) {
 }
 
 // Helper to create a DevWatch instance for tests
-func NewTestDevWatch(t *testing.T, tempDir string, assetCalled, goCalled *bool, reloadCount *int, reloadCalled chan struct{}) (*DevWatch, *fsnotify.Watcher) {
+func NewTestDevWatch(t *testing.T, tempDir string, assetCalled, goCalled *int32, reloadCount *int64, reloadCalled chan struct{}) (*DevWatch, *fsnotify.Watcher) {
 	config := &WatchConfig{
 		AppRootDir:      tempDir,
 		FileEventAssets: &FakeFileEvent{Called: assetCalled},
 		FilesEventGO:    []GoFileHandler{&FakeGoFileHandler{Called: goCalled}},
 		BrowserReload: func() error {
-			*reloadCount++
+			atomic.AddInt64(reloadCount, 1) // Thread-safe increment
 			reloadCalled <- struct{}{}
 			return nil
 		},

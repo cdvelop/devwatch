@@ -3,6 +3,7 @@ package devwatch
 import (
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,11 +31,11 @@ func (et *EventTracker) GetEvents() []string {
 // TrackingFileEvent tracks all file events for testing
 type TrackingFileEvent struct {
 	Tracker *EventTracker
-	Called  *bool
+	Called  *int32 // Use int32 for atomic operations
 }
 
 func (t *TrackingFileEvent) NewFileEvent(fileName, extension, filePath, event string) error {
-	*t.Called = true
+	atomic.StoreInt32(t.Called, 1) // Thread-safe write
 	t.Tracker.AddEvent(event + ":" + fileName)
 	return nil
 }
@@ -54,9 +55,9 @@ func TestWatchEvents_FileRenameEvents(t *testing.T) {
 
 	// Setup event tracking
 	eventTracker := &EventTracker{}
-	assetCalled := false
-	goCalled := false
-	reloadCount := 0
+	var assetCalled int32                   // Use int32 for atomic operations
+	var goCalled int32                      // Use int32 for atomic operations
+	var reloadCount int64                   // Use int64 for atomic operations
 	reloadCalled := make(chan struct{}, 10) // Increased buffer for multiple events
 
 	// Create a custom config with event tracking
@@ -165,7 +166,7 @@ func TestWatchEvents_FileRenameEvents(t *testing.T) {
 		}
 	}
 
-	if !assetCalled {
+	if atomic.LoadInt32(&assetCalled) == 0 { // Thread-safe read
 		t.Error("Asset handler was not called")
 	}
 
@@ -195,8 +196,8 @@ func TestWatchEvents_RealFileRename(t *testing.T) {
 
 	// Setup event tracking
 	eventTracker := &EventTracker{}
-	assetCalled := false
-	reloadCount := 0
+	var assetCalled int32 // Use int32 for atomic operations
+	var reloadCount int64 // Use int64 for atomic operations
 	reloadCalled := make(chan struct{}, 10)
 
 	config := &WatchConfig{
@@ -204,7 +205,7 @@ func TestWatchEvents_RealFileRename(t *testing.T) {
 		FileEventAssets: &TrackingFileEvent{Tracker: eventTracker, Called: &assetCalled},
 		FilesEventGO:    []GoFileHandler{},
 		BrowserReload: func() error {
-			reloadCount++
+			atomic.AddInt64(&reloadCount, 1) // Thread-safe increment
 			reloadCalled <- struct{}{}
 			return nil
 		},
@@ -313,7 +314,7 @@ func TestWatchEvents_RealFileRename(t *testing.T) {
 		t.Error("Neither RENAME nor CREATE events were detected during file rename operation")
 	}
 
-	if !assetCalled {
+	if atomic.LoadInt32(&assetCalled) == 0 { // Thread-safe read
 		t.Error("Asset handler was not called during rename operation")
 	}
 }
@@ -322,9 +323,9 @@ func TestWatchEvents_BrowserReloadCalled(t *testing.T) {
 	tempDir := t.TempDir()
 	cssFile, goFile := CreateTestFiles(t, tempDir)
 
-	assetCalled := false
-	goCalled := false
-	reloadCount := 0
+	var assetCalled int32 // Use int32 for atomic operations
+	var goCalled int32    // Use int32 for atomic operations
+	var reloadCount int64 // Use int64 for atomic operations
 	reloadCalled := make(chan struct{}, 2)
 
 	w, watcher := NewTestDevWatch(t, tempDir, &assetCalled, &goCalled, &reloadCount, reloadCalled)
@@ -366,11 +367,11 @@ func TestWatchEvents_BrowserReloadCalled(t *testing.T) {
 		t.Fatal("watchEvents did not finish in time")
 	}
 
-	if !assetCalled {
+	if atomic.LoadInt32(&assetCalled) == 0 { // Thread-safe read
 		t.Error("Asset handler was not called")
 	}
-	if !goCalled {
+	if atomic.LoadInt32(&goCalled) == 0 { // Thread-safe read
 		t.Log("Go handler was not called (expected due to godepfind test limitations)")
 	}
-	t.Logf("Test completed. BrowserReload was called %d times", reloadCount)
+	t.Logf("Test completed. BrowserReload was called %d times", atomic.LoadInt64(&reloadCount))
 }
