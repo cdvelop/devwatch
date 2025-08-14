@@ -100,22 +100,23 @@ func (h *DevWatch) watchEvents() {
 							}
 							switch extension {
 							case ".go":
-								handlerFound := false
+								//handlerFound := false
 								for _, handler := range h.FilesEventGO {
 									isMine, herr := h.depFinder.ThisFileIsMine(handler, fileName, event.Name, eventType)
 									if herr != nil {
 										// Log error but continue to next handler
-										fmt.Fprintln(h.Writer, "Watch handler check error:", herr)
+										//fmt.Fprintln(h.Writer, "Watch handler check error:", herr)
+										// mostrar el error es irrelevante ya que puede que se creare un nuevo archivo vació
 										continue
 									}
 									if isMine {
 										err = handler.NewFileEvent(fileName, extension, event.Name, eventType)
-										handlerFound = true
+										//handlerFound = true
 									}
 								}
-								if !handlerFound {
-									fmt.Fprintln(h.Writer, "No handler found for go file: "+fileName)
-								}
+							/* 	if !handlerFound { // no se requiere saber
+								fmt.Fprintln(h.Writer, "No handler found for go file: "+fileName)
+							} */
 
 							default:
 								err = errors.New("Watch Unknown file type: " + extension)
