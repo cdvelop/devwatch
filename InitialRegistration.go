@@ -15,12 +15,12 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 	}
 
 	if err := h.watcher.Add(path); err != nil {
-		fmt.Fprintln(h.Writer, "Watch: Failed to add directory to watcher:", path, err)
+		fmt.Fprintln(h.Logger, "Watch: Failed to add directory to watcher:", path, err)
 		return err
 	}
 
 	reg[path] = struct{}{}
-	fmt.Fprintln(h.Writer, "Watch path added:", path)
+	fmt.Fprintln(h.Logger, "Watch path added:", path)
 
 	// Get fileName once and reuse
 	fileName, err := GetFileName(path)
@@ -29,7 +29,7 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 		if h.FolderEvents != nil {
 			err = h.FolderEvents.NewFolderEvent(fileName, path, "create")
 			if err != nil {
-				fmt.Fprintln(h.Writer, "Watch folder event error:", err)
+				fmt.Fprintln(h.Logger, "Watch folder event error:", err)
 			}
 		}
 		// MEMORY REGISTER FILES IN HANDLERS
@@ -40,20 +40,20 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 	}
 
 	if err != nil {
-		fmt.Fprintln(h.Writer, "Watch addDirectoryToWatcher:", err)
+		fmt.Fprintln(h.Logger, "Watch addDirectoryToWatcher:", err)
 	}
 
 	return nil
 }
 
 func (h *DevWatch) InitialRegistration() {
-	fmt.Fprintln(h.Writer, "InitialRegistration APP ROOT DIR: "+h.AppRootDir)
+	fmt.Fprintln(h.Logger, "InitialRegistration APP ROOT DIR: "+h.AppRootDir)
 
 	reg := make(map[string]struct{})
 
 	err := filepath.Walk(h.AppRootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			fmt.Fprintln(h.Writer, "accessing path:", path, err)
+			fmt.Fprintln(h.Logger, "accessing path:", path, err)
 			return nil
 		}
 		if info.IsDir() && !h.Contain(path) {
@@ -63,6 +63,6 @@ func (h *DevWatch) InitialRegistration() {
 	})
 
 	if err != nil {
-		fmt.Fprintln(h.Writer, "Walking directory:", err)
+		fmt.Fprintln(h.Logger, "Walking directory:", err)
 	}
 }

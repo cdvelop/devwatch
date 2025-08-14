@@ -27,9 +27,9 @@ func (h *DevWatch) watchEvents() {
 
 		case event, ok := <-h.watcher.Events:
 			if !ok {
-				fmt.Fprintln(h.Writer, "Error h.watcher.Events")
+				fmt.Fprintln(h.Logger, "Error h.watcher.Events")
 				return
-			} // fmt.Fprintln(h.Writer, "DEBUG Event:", event.Name, event.Op)
+			} // fmt.Fprintln(h.Logger, "DEBUG Event:", event.Name, event.Op)
 			// Restore debouncer with shorter timeout - 100ms is enough for file operations to complete,
 			// but short enough to not miss important events like CREATE followed by WRITE
 			if lastTime, ok := lastActions[event.Name]; !ok || time.Since(lastTime) > 100*time.Millisecond {
@@ -54,7 +54,7 @@ func (h *DevWatch) watchEvents() {
 							if h.FolderEvents != nil {
 								err = h.FolderEvents.NewFolderEvent(fileName, event.Name, eventType)
 								if err != nil {
-									fmt.Fprintln(h.Writer, "Watch folder event error:", err)
+									fmt.Fprintln(h.Logger, "Watch folder event error:", err)
 								}
 							}
 							// Add new directory to watcher
@@ -76,7 +76,7 @@ func (h *DevWatch) watchEvents() {
 										return nil
 									})
 									if err != nil {
-										fmt.Fprintln(h.Writer, "Watch: Error walking new directory:", event.Name, err)
+										fmt.Fprintln(h.Logger, "Watch: Error walking new directory:", event.Name, err)
 									}
 								}
 							}
@@ -92,7 +92,7 @@ func (h *DevWatch) watchEvents() {
 							if handled {
 								// already handled as asset, skip to timer reset
 								if err != nil {
-									fmt.Fprintln(h.Writer, "Watch updating file:", err)
+									fmt.Fprintln(h.Logger, "Watch updating file:", err)
 								} else {
 									reloadBrowserTimer.Reset(wait)
 								}
@@ -123,7 +123,7 @@ func (h *DevWatch) watchEvents() {
 							}
 
 							if err != nil {
-								fmt.Fprintln(h.Writer, "Watch updating file:", err)
+								fmt.Fprintln(h.Logger, "Watch updating file:", err)
 							} else {
 								reloadBrowserTimer.Reset(wait)
 							}
@@ -135,7 +135,7 @@ func (h *DevWatch) watchEvents() {
 
 		case err, ok := <-h.watcher.Errors:
 			if !ok {
-				fmt.Fprintln(h.Writer, "h.watcher.Errors:", err)
+				fmt.Fprintln(h.Logger, "h.watcher.Errors:", err)
 				return
 			}
 
@@ -143,7 +143,7 @@ func (h *DevWatch) watchEvents() {
 			// El temporizador de recarga ha expirado, ejecuta reload del navegador
 			err := h.BrowserReload()
 			if err != nil {
-				fmt.Fprintln(h.Writer, "Watch:", err)
+				fmt.Fprintln(h.Logger, "Watch:", err)
 			}
 
 		case <-h.ExitChan:

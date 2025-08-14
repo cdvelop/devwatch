@@ -57,7 +57,7 @@ func NewTestDevWatchForDuplication(t *testing.T, tempDir string, assetCallCount 
 		FileEventAssets: countingEvent,
 		FilesEventGO:    []GoFileHandler{},           // Empty for this test
 		BrowserReload:   func() error { return nil }, // No browser reload needed for this test
-		Writer:          os.Stdout,
+		Logger:          os.Stdout,
 		ExitChan:        make(chan bool, 1),
 	}
 	w := New(config)
@@ -98,7 +98,7 @@ func NewTestDevWatch(t *testing.T, tempDir string, assetCalled, goCalled *int32,
 			reloadCalled <- struct{}{}
 			return nil
 		},
-		Writer:   os.Stdout,
+		Logger:   os.Stdout,
 		ExitChan: make(chan bool, 1),
 	}
 	w := New(config)

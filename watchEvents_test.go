@@ -70,7 +70,7 @@ func TestWatchEvents_FileRenameEvents(t *testing.T) {
 			reloadCalled <- struct{}{}
 			return nil
 		},
-		Writer:   os.Stdout,
+		Logger:   os.Stdout,
 		ExitChan: make(chan bool, 1),
 	}
 
@@ -209,7 +209,7 @@ func TestWatchEvents_RealFileRename(t *testing.T) {
 			reloadCalled <- struct{}{}
 			return nil
 		},
-		Writer:   os.Stdout,
+		Logger:   os.Stdout,
 		ExitChan: make(chan bool, 1),
 	}
 

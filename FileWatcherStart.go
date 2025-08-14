@@ -11,7 +11,7 @@ func (h *DevWatch) FileWatcherStart(wg *sync.WaitGroup) {
 
 	if h.watcher == nil {
 		if watcher, err := fsnotify.NewWatcher(); err != nil {
-			fmt.Fprintln(h.Writer, "Error New Watcher: ", err)
+			fmt.Fprintln(h.Logger, "Error New Watcher: ", err)
 			return
 		} else {
 			h.watcher = watcher
@@ -22,7 +22,7 @@ func (h *DevWatch) FileWatcherStart(wg *sync.WaitGroup) {
 	go h.watchEvents()
 	h.InitialRegistration()
 
-	fmt.Fprintln(h.Writer, "Listening for File Changes ...")
+	fmt.Fprintln(h.Logger, "Listening for File Changes ...")
 	// Wait for exit signal after watching is active
 
 	<-h.ExitChan

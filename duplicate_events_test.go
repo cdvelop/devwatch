@@ -43,7 +43,7 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 			reloadCalled <- struct{}{}
 			return nil
 		},
-		Writer:   os.Stdout,
+		Logger:   os.Stdout,
 		ExitChan: make(chan bool, 1),
 	}
 

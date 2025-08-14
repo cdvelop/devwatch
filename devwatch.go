@@ -30,7 +30,7 @@ type WatchConfig struct {
 
 	BrowserReload func() error // when change frontend files reload browser
 
-	Writer          io.Writer       // For logging output
+	Logger          io.Writer       // For logging output
 	ExitChan        chan bool       // global channel to signal the exit
 	UnobservedFiles func() []string // files that are not observed by the watcher eg: ".git", ".gitignore", ".vscode",  "examples",
 }
