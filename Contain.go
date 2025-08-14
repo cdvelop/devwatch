@@ -11,11 +11,7 @@ func (h *DevWatch) Contain(path string) bool {
 	// Convertir manualmente las barras invertidas a barras normales
 	normPath := strings.ReplaceAll(path, "\\", "/")
 
-	// ignore hidden files
-	if strings.HasPrefix(filepath.Base(normPath), ".") {
-		return true
-	}
-
+	// Initialize the no_add_to_watch map if needed, BEFORE any checks
 	if h.no_add_to_watch == nil {
 		h.no_add_to_watch = map[string]bool{}
 
@@ -27,15 +23,13 @@ func (h *DevWatch) Contain(path string) bool {
 		}
 	}
 
-	// Check for exact match against the full paths in the ignore list
+	// Check for exact match against the full paths in the ignore list FIRST
 	if _, exists := h.no_add_to_watch[normPath]; exists {
 		return true
 	}
 
-	// Split the normalized path into components
+	// Split the normalized path into components and check each part
 	pathParts := strings.Split(normPath, "/")
-
-	// Check each part of the path against ignored files/directories
 	for _, part := range pathParts {
 		if part == "" {
 			continue
@@ -45,12 +39,18 @@ func (h *DevWatch) Contain(path string) bool {
 		}
 	}
 
-	// Additionally, check for paths that start with an ignored path + separator (usando '/' universalmente)
+	// Additionally, check for paths that start with an ignored path + separator
 	for ignoredPath := range h.no_add_to_watch {
 		ignoredNorm := filepath.ToSlash(ignoredPath)
 		if strings.HasPrefix(normPath, ignoredNorm+"/") {
 			return true
 		}
+	}
+
+	// ignore other hidden files (but not .git which is handled above)
+	baseName := filepath.Base(normPath)
+	if strings.HasPrefix(baseName, ".") && baseName != ".git" {
+		return true
 	}
 
 	return false

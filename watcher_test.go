@@ -98,6 +98,20 @@ func TestContain(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "git folder in middle of path with absolute unix path",
+			path: "/home/user/Dev/Pkg/Mine/godev/test/manual/.git/objects/dc",
+			setup: func() *DevWatch {
+				return &DevWatch{
+					WatchConfig: &WatchConfig{
+						UnobservedFiles: func() []string {
+							return []string{".git"}
+						},
+					},
+				}
+			},
+			expected: true,
+		},
+		{
 			name: "git string in directory name but not excluded",
 			path: "test/github-integration/code.go",
 			setup: func() *DevWatch {
