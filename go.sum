@@ -1,5 +1,5 @@
-github.com/cdvelop/godepfind v0.0.6 h1:vUZUzlYDx0/4VFEd5UOXmFZCgS1X5/H51+n4Q/fkQQo=
-github.com/cdvelop/godepfind v0.0.6/go.mod h1:7NRwbtsqQjy3bL6Jqmr+UlevqYDsYLLlMUqTFh0tO9c=
+github.com/cdvelop/godepfind v0.0.7 h1:ROR/dXmR7q9UfNPniHRXAJFfGC4wbXJ5iHKOgkiXOMw=
+github.com/cdvelop/godepfind v0.0.7/go.mod h1:7NRwbtsqQjy3bL6Jqmr+UlevqYDsYLLlMUqTFh0tO9c=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=

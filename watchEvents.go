@@ -103,13 +103,17 @@ func (h *DevWatch) watchEvents() {
 								//handlerFound := false
 								for _, handler := range h.FilesEventGO {
 									isMine, herr := h.depFinder.ThisFileIsMine(handler, fileName, event.Name, eventType)
+									fmt.Fprintln(h.Logger, "Watch Name():", handler.Name(), "MainFilePath():", handler.MainFilePath(), "File:", fileName, "IsMine:", isMine)
+
 									if herr != nil {
 										// Log error but continue to next handler
-										//fmt.Fprintln(h.Writer, "Watch handler check error:", herr)
+										fmt.Fprintln(h.Logger, "Watch handler check error:", herr)
 										// mostrar el error es irrelevante ya que puede que se creare un nuevo archivo vació
 										continue
 									}
 									if isMine {
+
+										fmt.Fprintln(h.Logger, "Watch handler found for go file:", fileName)
 										err = handler.NewFileEvent(fileName, extension, event.Name, eventType)
 										//handlerFound = true
 									}
