@@ -35,7 +35,7 @@ fsnotify implementation Watches file system changes in a project directory, trig
      FilesEventGO    []GoFileHandler   // Handlers for .go files (backend, wasm, etc)
      FolderEvents    FolderEvent       // Handler for folder events
      BrowserReload   func() error      // Function to reload the browser
-     Writer          io.Writer         // Log output
+     Logger          io.Writer         // Log output
      ExitChan        chan bool         // Channel to signal exit
      UnobservedFiles func() []string   // Files/folders to ignore (e.g. .git, .vscode)
  }
