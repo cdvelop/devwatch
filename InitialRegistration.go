@@ -15,12 +15,12 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 	}
 
 	if err := h.watcher.Add(path); err != nil {
-		fmt.Fprintln(h.Logger, "Watch: Failed to add directory to watcher:", path, err)
+		fmt.Fprintln(h.Logger, "Failed to add directory to watcher:", path, err)
 		return err
 	}
 
 	reg[path] = struct{}{}
-	fmt.Fprintln(h.Logger, "Watch path added:", path)
+	fmt.Fprintln(h.Logger, "path added:", path)
 
 	// Get fileName once and reuse
 	fileName, err := GetFileName(path)
@@ -29,7 +29,7 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 		if h.FolderEvents != nil {
 			err = h.FolderEvents.NewFolderEvent(fileName, path, "create")
 			if err != nil {
-				fmt.Fprintln(h.Logger, "Watch folder event error:", err)
+				fmt.Fprintln(h.Logger, "folder event error:", err)
 			}
 		}
 		// MEMORY REGISTER FILES IN HANDLERS
@@ -40,14 +40,14 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 	}
 
 	if err != nil {
-		fmt.Fprintln(h.Logger, "Watch addDirectoryToWatcher:", err)
+		fmt.Fprintln(h.Logger, "addDirectoryToWatcher:", err)
 	}
 
 	return nil
 }
 
 func (h *DevWatch) InitialRegistration() {
-	fmt.Fprintln(h.Logger, "InitialRegistration APP ROOT DIR: "+h.AppRootDir)
+	fmt.Fprintln(h.Logger, "Registration APP ROOT DIR: "+h.AppRootDir)
 
 	reg := make(map[string]struct{})
 
@@ -67,7 +67,7 @@ func (h *DevWatch) InitialRegistration() {
 
 				// Handle asset files (CSS, JS, SVG, HTML)
 				if slices.Contains(h.supportedAssetsExtensions, extension) {
-					fmt.Fprintln(h.Logger, "InitialRegistration processing asset file:", path)
+					//fmt.Fprintln(h.Logger, "InitialRegistration processing asset file:", path)
 					err = h.FileEventAssets.NewFileEvent(fileName, extension, path, "create")
 					if err != nil {
 						fmt.Fprintln(h.Logger, "InitialRegistration asset file error:", err)
@@ -82,7 +82,7 @@ func (h *DevWatch) InitialRegistration() {
 							continue // Skip errors during initial registration
 						}
 						if isMine {
-							fmt.Fprintln(h.Logger, "InitialRegistration processing go file:", path, "for handler:", handler.Name())
+							//fmt.Fprintln(h.Logger, "InitialRegistration processing go file:", path, "for handler:", handler.Name())
 							err = handler.NewFileEvent(fileName, extension, path, "create")
 							if err != nil {
 								fmt.Fprintln(h.Logger, "InitialRegistration go file error:", err)

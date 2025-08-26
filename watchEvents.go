@@ -117,7 +117,7 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 		processError = h.FileEventAssets.NewFileEvent(fileName, extension, eventName, eventType)
 		if processError != nil {
 			if isDeleteEvent {
-				fmt.Fprintln(h.Logger, "Watch delete asset file error:", processError)
+				fmt.Fprintln(h.Logger, "delete asset file error:", processError)
 			}
 		} else {
 			// Trigger browser reload for asset files
