@@ -55,8 +55,15 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 	// Iniciar el watcher real
 	go w.FileWatcherStart(&wg)
 
-	// Esperar a que el watcher esté listo
+	// Esperar a que el watcher esté listo y complete InitialRegistration
 	time.Sleep(200 * time.Millisecond)
+
+	// Reset counters after InitialRegistration to test only the debouncing behavior
+	t.Log("Resetting counters after InitialRegistration")
+	countingEvent.Reset()
+	reloadMu.Lock()
+	reloadCount = 0
+	reloadMu.Unlock()
 
 	// Escribir al archivo REAL con eventos muy rápidos para probar debouncing
 	t.Log("Writing to real HTML file - rapid events")
@@ -148,6 +155,13 @@ func TestWatchEvents_RealMultipleFiles_DuplicateBug(t *testing.T) {
 	go w.FileWatcherStart(&wg)
 
 	time.Sleep(100 * time.Millisecond)
+
+	// Reset counters after InitialRegistration to test only the file modification behavior
+	t.Log("Resetting counters after InitialRegistration")
+	countingEvent.Reset()
+	reloadMu.Lock()
+	reloadCount = 0
+	reloadMu.Unlock()
 
 	// Escribir a múltiples archivos
 	files := []string{htmlFile, cssFile, jsFile}

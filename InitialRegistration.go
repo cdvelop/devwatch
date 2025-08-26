@@ -56,8 +56,41 @@ func (h *DevWatch) InitialRegistration() {
 			fmt.Fprintln(h.Logger, "accessing path:", path, err)
 			return nil
 		}
+
 		if info.IsDir() && !h.Contain(path) {
 			h.addDirectoryToWatcher(path, reg)
+		} else if !info.IsDir() {
+			// Process existing files during initial registration
+			fileName, ferr := GetFileName(path)
+			if ferr == nil {
+				extension := filepath.Ext(path)
+
+				// Handle asset files (CSS, JS, SVG, HTML)
+				if slices.Contains(h.supportedAssetsExtensions, extension) {
+					fmt.Fprintln(h.Logger, "InitialRegistration processing asset file:", path)
+					err = h.FileEventAssets.NewFileEvent(fileName, extension, path, "create")
+					if err != nil {
+						fmt.Fprintln(h.Logger, "InitialRegistration asset file error:", err)
+					}
+				}
+
+				// Handle Go files
+				if extension == ".go" {
+					for _, handler := range h.FilesEventGO {
+						isMine, herr := h.depFinder.ThisFileIsMine(handler, fileName, path, "create")
+						if herr != nil {
+							continue // Skip errors during initial registration
+						}
+						if isMine {
+							fmt.Fprintln(h.Logger, "InitialRegistration processing go file:", path, "for handler:", handler.Name())
+							err = handler.NewFileEvent(fileName, extension, path, "create")
+							if err != nil {
+								fmt.Fprintln(h.Logger, "InitialRegistration go file error:", err)
+							}
+						}
+					}
+				}
+			}
 		}
 		return nil
 	})

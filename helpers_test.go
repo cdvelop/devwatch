@@ -49,6 +49,14 @@ func (f *CountingFileEvent) GetCounts() (int, []string) {
 	return *f.CallCount, append([]string{}, *f.Calls...)
 }
 
+// Reset safely resets the counters and calls
+func (f *CountingFileEvent) Reset() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	*f.CallCount = 0
+	*f.Calls = (*f.Calls)[:0] // Clear slice but keep underlying array
+}
+
 // Helper to create a DevWatch instance for duplication tests
 func NewTestDevWatchForDuplication(t *testing.T, tempDir string, assetCallCount *int, assetCalls *[]string) (*DevWatch, *fsnotify.Watcher, *CountingFileEvent) {
 	countingEvent := &CountingFileEvent{CallCount: assetCallCount, Calls: assetCalls}
