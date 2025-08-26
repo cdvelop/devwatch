@@ -2,6 +2,7 @@ package devwatch
 
 import (
 	"io"
+	"sync"
 
 	"github.com/cdvelop/godepfind"
 	"github.com/fsnotify/fsnotify"
@@ -40,6 +41,7 @@ type DevWatch struct {
 	watcher                   *fsnotify.Watcher
 	depFinder                 *godepfind.GoDepFind // Dependency finder for Go projects
 	no_add_to_watch           map[string]bool
+	noAddMu                   sync.RWMutex
 	supportedAssetsExtensions []string
 	// logMu           sync.Mutex // No longer needed with Print func
 }

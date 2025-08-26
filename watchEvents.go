@@ -160,9 +160,10 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 
 // triggerBrowserReload safely triggers a browser reload in a goroutine
 func (h *DevWatch) triggerBrowserReload() {
-	go func() {
-		if h.BrowserReload != nil {
-			h.BrowserReload()
-		}
-	}()
+	if h.BrowserReload != nil {
+		// Call synchronously so the caller (watchEvents) completes the
+		// reload action before returning. This prevents background reload
+		// goroutines from racing with test teardown and shared counters.
+		_ = h.BrowserReload()
+	}
 }
