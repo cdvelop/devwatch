@@ -16,11 +16,14 @@ fsnotify implementation Watches file system changes in a project directory, trig
      NewFileEvent(fileName, extension, filePath, event string) error
  }
 
-// Go file handler: must implement both DepHandler and FileEvent
- type GoFileHandler interface {
-     godepfind.DepHandler
-     FileEvent
- }
+type MainHandler interface {
+	MainFilePath() string // eg: "app/server/main.go"
+}
+
+type GoFileHandler interface {
+	MainHandler
+	FileEvent
+}
 
 // Folder event handler interface
 // event: create, remove, write, rename
