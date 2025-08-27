@@ -13,8 +13,12 @@ type FileEvent interface {
 	NewFileEvent(fileName, extension, filePath, event string) error
 }
 
+type MainHandler interface {
+	MainFilePath() string // eg: "app/server/main.go"
+}
+
 type GoFileHandler interface {
-	godepfind.DepHandler
+	MainHandler
 	FileEvent
 }
 

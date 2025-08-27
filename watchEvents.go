@@ -142,7 +142,7 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 			//fmt.Fprintf(h.Logger, "DEBUG: Processing non-delete event for Go file, handlers count=%d\n", len(h.FilesEventGO))
 			for _, handler := range h.FilesEventGO {
 				//fmt.Fprintf(h.Logger, "DEBUG: Checking handler %d: %s -> %s\n", i, handler.Name(), handler.MainFilePath())
-				isMine, herr := h.depFinder.ThisFileIsMine(handler, eventName, eventType)
+				isMine, herr := h.depFinder.ThisFileIsMine(handler.MainFilePath(), eventName, eventType)
 				//fmt.Fprintf(h.Logger, "DEBUG: ThisFileIsMine result: isMine=%v, err=%v\n", isMine, herr)
 				if herr != nil {
 					//fmt.Fprintf(h.Logger, "DEBUG: Error from ThisFileIsMine, continuing: %v\n", herr)
