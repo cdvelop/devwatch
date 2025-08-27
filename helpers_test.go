@@ -24,7 +24,6 @@ func (f *FakeGoFileHandler) NewFileEvent(fileName, extension, filePath, event st
 }
 
 func (f *FakeGoFileHandler) MainFilePath() string      { return "fake/main.go" }
-func (f *FakeGoFileHandler) Name() string              { return "FakeGoHandler" }
 func (f *FakeGoFileHandler) UnobservedFiles() []string { return []string{"fake_output.exe"} }
 
 // CountingFileEvent counts how many times NewFileEvent is called

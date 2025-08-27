@@ -128,34 +128,49 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 
 	// Handle Go files
 	if extension == ".go" {
+		// DEBUG: Log all Go file events
+		//fmt.Fprintf(h.Logger, "DEBUG: Go file event - fileName=%s, eventName=%s, eventType=%s, isDeleteEvent=%v\n",fileName, eventName, eventType, isDeleteEvent)
+
 		if isDeleteEvent {
 			// For delete events, let all handlers try to process
+			//fmt.Fprintln(h.Logger, "DEBUG: Processing delete event for Go file")
 			for _, handler := range h.FilesEventGO {
 				_ = handler.NewFileEvent(fileName, extension, eventName, eventType)
 			}
 		} else {
 			// For non-delete events, use dependency finder
+			//fmt.Fprintf(h.Logger, "DEBUG: Processing non-delete event for Go file, handlers count=%d\n", len(h.FilesEventGO))
 			for _, handler := range h.FilesEventGO {
-				isMine, herr := h.depFinder.ThisFileIsMine(handler, fileName, eventName, eventType)
+				//fmt.Fprintf(h.Logger, "DEBUG: Checking handler %d: %s -> %s\n", i, handler.Name(), handler.MainFilePath())
+				isMine, herr := h.depFinder.ThisFileIsMine(handler, eventName, eventType)
+				//fmt.Fprintf(h.Logger, "DEBUG: ThisFileIsMine result: isMine=%v, err=%v\n", isMine, herr)
 				if herr != nil {
+					//fmt.Fprintf(h.Logger, "DEBUG: Error from ThisFileIsMine, continuing: %v\n", herr)
 					continue
 				}
 				if isMine {
+					//fmt.Fprintf(h.Logger, "DEBUG: Handler %s claims this file, calling NewFileEvent\n", handler.Name())
 					processError = handler.NewFileEvent(fileName, extension, eventName, eventType)
+					//fmt.Fprintf(h.Logger, "DEBUG: NewFileEvent result: err=%v\n", processError)
 					break
+				} else {
+					//fmt.Fprintf(h.Logger, "DEBUG: Handler %s does NOT claim this file\n", handler.Name())
 				}
 			}
 		}
 
 		// Trigger browser reload for Go files (if no error occurred)
 		if processError == nil {
+			//fmt.Fprintln(h.Logger, "DEBUG: Triggering browser reload for Go file")
 			h.triggerBrowserReload()
+		} else {
+			//fmt.Fprintf(h.Logger, "DEBUG: NOT triggering browser reload due to error: %v\n", processError)
 		}
 	}
 
-	if processError != nil {
+	/* if processError != nil {
 		fmt.Fprintln(h.Logger, "Watch updating file:", processError)
-	}
+	} */
 }
 
 // triggerBrowserReload safely triggers a browser reload in a goroutine
