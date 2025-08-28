@@ -23,8 +23,8 @@ func (f *FakeGoFileHandler) NewFileEvent(fileName, extension, filePath, event st
 	return nil
 }
 
-func (f *FakeGoFileHandler) MainFilePath() string      { return "fake/main.go" }
-func (f *FakeGoFileHandler) UnobservedFiles() []string { return []string{"fake_output.exe"} }
+func (f *FakeGoFileHandler) MainInputFileRelativePath() string { return "fake/main.go" }
+func (f *FakeGoFileHandler) UnobservedFiles() []string         { return []string{"fake_output.exe"} }
 
 // CountingFileEvent counts how many times NewFileEvent is called
 type CountingFileEvent struct {

@@ -77,7 +77,7 @@ func (h *DevWatch) InitialRegistration() {
 				// Handle Go files
 				if extension == ".go" {
 					for _, handler := range h.FilesEventGO {
-						isMine, herr := h.depFinder.ThisFileIsMine(handler.MainFilePath(), path, "create")
+						isMine, herr := h.depFinder.ThisFileIsMine(handler.MainInputFileRelativePath(), path, "create")
 						if herr != nil {
 							continue // Skip errors during initial registration
 						}

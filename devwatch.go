@@ -14,7 +14,7 @@ type FileEvent interface {
 }
 
 type MainHandler interface {
-	MainFilePath() string // eg: "app/server/main.go"
+	MainInputFileRelativePath() string // eg: "app/server/main.go"
 }
 
 type GoFileHandler interface {

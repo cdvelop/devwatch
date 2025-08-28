@@ -141,20 +141,20 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 			// For non-delete events, use dependency finder
 			//fmt.Fprintf(h.Logger, "DEBUG: Processing non-delete event for Go file, handlers count=%d\n", len(h.FilesEventGO))
 			for _, handler := range h.FilesEventGO {
-				//fmt.Fprintf(h.Logger, "DEBUG: Checking handler %d: MainFilePath=%s\n", i, handler.MainFilePath())
-				isMine, herr := h.depFinder.ThisFileIsMine(handler.MainFilePath(), eventName, eventType)
+				//fmt.Fprintf(h.Logger, "DEBUG: Checking handler %d: MainInputFileRelativePath=%s\n", i, handler.MainInputFileRelativePath())
+				isMine, herr := h.depFinder.ThisFileIsMine(handler.MainInputFileRelativePath(), eventName, eventType)
 				//fmt.Fprintf(h.Logger, "DEBUG: ThisFileIsMine result: isMine=%v, err=%v\n", isMine, herr)
 				if herr != nil {
 					//fmt.Fprintf(h.Logger, "DEBUG: Error from ThisFileIsMine, continuing: %v\n", herr)
 					continue
 				}
 				if isMine {
-					//fmt.Fprintf(h.Logger, "DEBUG: Handler with MainFilePath=%s claims this file, calling NewFileEvent\n", handler.MainFilePath())
+					//fmt.Fprintf(h.Logger, "DEBUG: Handler with MainInputFileRelativePath=%s claims this file, calling NewFileEvent\n", handler.MainInputFileRelativePath())
 					processError = handler.NewFileEvent(fileName, extension, eventName, eventType)
 					//fmt.Fprintf(h.Logger, "DEBUG: NewFileEvent result: err=%v\n", processError)
 					break
 				} else {
-					//fmt.Fprintf(h.Logger, "DEBUG: Handler with MainFilePath=%s does NOT claim this file\n", handler.MainFilePath())
+					//fmt.Fprintf(h.Logger, "DEBUG: Handler with MainInputFileRelativePath=%s does NOT claim this file\n", handler.MainInputFileRelativePath())
 				}
 			}
 		}

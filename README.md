@@ -17,7 +17,7 @@ fsnotify implementation Watches file system changes in a project directory, trig
  }
 
 type MainHandler interface {
-	MainFilePath() string // eg: "app/server/main.go"
+	MainInputFileRelativePath() string // eg: "app/server/main.go"
 }
 
 type GoFileHandler interface {
