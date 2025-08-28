@@ -109,10 +109,13 @@ func (h *DevWatch) handleDirectoryEvent(fileName, eventName, eventType string) {
 
 // handleFileEvent processes file creation/modification/deletion events
 func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDeleteEvent bool) {
+	// 1) Extraer la extensión del archivo para determinar cómo procesarlo
+	//    (archivos .go vs archivos de assets como .css, .js, .html)
 	extension := filepath.Ext(eventName)
 	var processError error
 
-	// Handle asset files
+	// 2) Manejar archivos de assets (CSS, JS, HTML, imágenes, etc.)
+	//    Estos archivos van directamente al handler de assets sin análisis de dependencias
 	if slices.Contains(h.supportedAssetsExtensions, extension) {
 		processError = h.FileEventAssets.NewFileEvent(fileName, extension, eventName, eventType)
 		if processError != nil {
@@ -126,40 +129,52 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 		return
 	}
 
-	// Handle Go files
+	// 3) Manejar archivos Go (.go) - requieren análisis de dependencias más complejo
 	if extension == ".go" {
-		// DEBUG: Log all Go file events
-		//fmt.Fprintf(h.Logger, "DEBUG: Go file event - fileName=%s, eventName=%s, eventType=%s, isDeleteEvent=%v\n", fileName, eventName, eventType, isDeleteEvent)
+		// Log all Go file events (debug prints removed in production build)
 
 		if isDeleteEvent {
-			// For delete events, let all handlers try to process
-			//fmt.Fprintln(h.Logger, "DEBUG: Processing delete event for Go file")
+			// 4) Para eventos de eliminación: permitir que todos los handlers procesen
+			//    porque no podemos analizar dependencias de un archivo eliminado
 			for _, handler := range h.FilesEventGO {
 				_ = handler.NewFileEvent(fileName, extension, eventName, eventType)
 			}
 		} else {
-			// For non-delete events, use dependency finder
-			//fmt.Fprintf(h.Logger, "DEBUG: Processing non-delete event for Go file, handlers count=%d\n", len(h.FilesEventGO))
-			for _, handler := range h.FilesEventGO {
-				//fmt.Fprintf(h.Logger, "DEBUG: Checking handler %d: MainInputFileRelativePath=%s\n", i, handler.MainInputFileRelativePath())
+			// 5) Para eventos que NO son eliminación: usar el dependency finder
+			//    para determinar qué handler debería procesar este archivo específico
+			fmt.Fprintf(h.Logger, "Processing non-delete event for Go file, handlers count=%d\n", len(h.FilesEventGO))
+			for i, handler := range h.FilesEventGO {
+				// 6) Obtener la ruta relativa del archivo main que maneja este handler
+				//    (ej: "pwa/main.server.go", "cmd/main.go", etc.)
+				fmt.Fprintf(h.Logger, "Checking handler %d: MainInputFileRelativePath=%s\n", i, handler.MainInputFileRelativePath())
+
+				// 7) Preguntar al dependency finder: "¿Este archivo pertenece a este handler?"
+				//    El finder analiza imports y dependencias para responder
 				isMine, herr := h.depFinder.ThisFileIsMine(handler.MainInputFileRelativePath(), eventName, eventType)
-				//fmt.Fprintf(h.Logger, "DEBUG: ThisFileIsMine result: isMine=%v, err=%v\n", isMine, herr)
+				fmt.Fprintf(h.Logger, "ThisFileIsMine result: isMine=%v, err=%v\n", isMine, herr)
+
 				if herr != nil {
-					//fmt.Fprintf(h.Logger, "DEBUG: Error from ThisFileIsMine, continuing: %v\n", herr)
+					// 8) Si hay error en el análisis, continuar con el siguiente handler
+					fmt.Fprintf(h.Logger, "Error from ThisFileIsMine, continuing: %v\n", herr)
 					continue
 				}
+
 				if isMine {
-					//fmt.Fprintf(h.Logger, "DEBUG: Handler with MainInputFileRelativePath=%s claims this file, calling NewFileEvent\n", handler.MainInputFileRelativePath())
+					// 9) Si el archivo pertenece a este handler, procesarlo y parar el bucle
+					//    Solo UN handler debe procesar cada archivo para evitar duplicación
+					fmt.Fprintf(h.Logger, "Handler with MainInputFileRelativePath=%s claims this file, calling NewFileEvent\n", handler.MainInputFileRelativePath())
 					processError = handler.NewFileEvent(fileName, extension, eventName, eventType)
-					//fmt.Fprintf(h.Logger, "DEBUG: NewFileEvent result: err=%v\n", processError)
+					fmt.Fprintf(h.Logger, "NewFileEvent result: err=%v\n", processError)
 					break
 				} else {
-					//fmt.Fprintf(h.Logger, "DEBUG: Handler with MainInputFileRelativePath=%s does NOT claim this file\n", handler.MainInputFileRelativePath())
+					// 10) Si el archivo NO pertenece a este handler, continuar con el siguiente
+					fmt.Fprintf(h.Logger, "Handler with MainInputFileRelativePath=%s does NOT claim this file\n", handler.MainInputFileRelativePath())
 				}
 			}
 		}
 
-		// Trigger browser reload for Go files (if no error occurred)
+		// 11) Disparar recarga del navegador para archivos Go (solo si no hubo errores)
+		//     Esto notifica al navegador que debe refrescar la página
 		if processError == nil {
 			//fmt.Fprintln(h.Logger, "DEBUG: Triggering browser reload for Go file")
 			h.triggerBrowserReload()
