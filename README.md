@@ -91,3 +91,6 @@ go watcher.FileWatcherStart(&wg)
 //   watcher.AddSupportedAssetsExtensions(".png", ".jpg", ".webp")
 func (dw *DevWatch) AddSupportedAssetsExtensions(exts ...string)
 ```
+
+
+## [Contributing](https://github.com/cdvelop/cdvelop/blob/main/CONTRIBUTING.md)
