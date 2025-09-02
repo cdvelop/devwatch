@@ -30,14 +30,27 @@ func (et *EventTracker) GetEvents() []string {
 
 // TrackingFileEvent tracks all file events for testing
 type TrackingFileEvent struct {
-	Tracker *EventTracker
-	Called  *int32 // Use int32 for atomic operations
+	Tracker              *EventTracker
+	Called               *int32 // Use int32 for atomic operations
+	SupportedExtensions_ []string
 }
 
 func (t *TrackingFileEvent) NewFileEvent(fileName, extension, filePath, event string) error {
 	atomic.StoreInt32(t.Called, 1) // Thread-safe write
 	t.Tracker.AddEvent(event + ":" + fileName)
 	return nil
+}
+
+func (t *TrackingFileEvent) SupportedExtensions() []string {
+	return t.SupportedExtensions_
+}
+
+func (t *TrackingFileEvent) MainInputFileRelativePath() string {
+	return "" // Not used in these tests
+}
+
+func (t *TrackingFileEvent) UnobservedFiles() []string {
+	return nil // Not used in these tests
 }
 
 func TestWatchEvents_FileRenameEvents(t *testing.T) {
@@ -61,10 +74,18 @@ func TestWatchEvents_FileRenameEvents(t *testing.T) {
 	reloadCalled := make(chan struct{}, 10) // Increased buffer for multiple events
 
 	// Create a custom config with event tracking
+	assetHandler := &TrackingFileEvent{
+		Tracker:              eventTracker,
+		Called:               &assetCalled,
+		SupportedExtensions_: []string{".css"},
+	}
+	goHandler := &FakeFilesEventHandler{
+		Called:               &goCalled,
+		SupportedExtensions_: []string{".go"},
+	}
 	config := &WatchConfig{
-		AppRootDir:      tempDir,
-		FileEventAssets: &TrackingFileEvent{Tracker: eventTracker, Called: &assetCalled},
-		FilesEventGO:    []GoFileHandler{&FakeGoFileHandler{Called: &goCalled}},
+		AppRootDir:         tempDir,
+		FilesEventHandlers: []FilesEventHandlers{assetHandler, goHandler},
 		BrowserReload: func() error {
 			reloadCount++
 			reloadCalled <- struct{}{}
@@ -75,7 +96,6 @@ func TestWatchEvents_FileRenameEvents(t *testing.T) {
 	}
 
 	w := New(config)
-	w.supportedAssetsExtensions = []string{".css"}
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -200,10 +220,14 @@ func TestWatchEvents_RealFileRename(t *testing.T) {
 	var reloadCount int64 // Use int64 for atomic operations
 	reloadCalled := make(chan struct{}, 10)
 
+	assetHandler := &TrackingFileEvent{
+		Tracker:              eventTracker,
+		Called:               &assetCalled,
+		SupportedExtensions_: []string{".css"},
+	}
 	config := &WatchConfig{
-		AppRootDir:      tempDir,
-		FileEventAssets: &TrackingFileEvent{Tracker: eventTracker, Called: &assetCalled},
-		FilesEventGO:    []GoFileHandler{},
+		AppRootDir:         tempDir,
+		FilesEventHandlers: []FilesEventHandlers{assetHandler},
 		BrowserReload: func() error {
 			atomic.AddInt64(&reloadCount, 1) // Thread-safe increment
 			reloadCalled <- struct{}{}
@@ -214,7 +238,6 @@ func TestWatchEvents_RealFileRename(t *testing.T) {
 	}
 
 	w := New(config)
-	w.supportedAssetsExtensions = []string{".css"}
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

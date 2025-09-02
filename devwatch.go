@@ -8,18 +8,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-// event: create, remove, write, rename
-type FileEvent interface {
+// FilesEventHandlers unifies asset and Go file event handling.
+// It allows handlers to specify which file extensions they support and how to process them.
+type FilesEventHandlers interface {
+	MainInputFileRelativePath() string // eg: go => "app/server/main.go" | js =>"app/pwa/public/main.js"
+	// NewFileEvent handles file events (create, remove, write, rename).
 	NewFileEvent(fileName, extension, filePath, event string) error
-}
-
-type MainHandler interface {
-	MainInputFileRelativePath() string // eg: "app/server/main.go"
-}
-
-type GoFileHandler interface {
-	MainHandler
-	FileEvent
+	SupportedExtensions() []string // eg: [".go"], [".js",".css"], etc.
+	UnobservedFiles() []string     // eg: main.exe, main.js
 }
 
 // event: create, remove, write, rename
@@ -28,10 +24,9 @@ type FolderEvent interface {
 }
 
 type WatchConfig struct {
-	AppRootDir      string          // eg: "home/user/myNewApp"
-	FileEventAssets FileEvent       // when change assets files eg: css, js, html, png, jpg, svg, etc event: create, remove, write, rename
-	FilesEventGO    []GoFileHandler // handlers for go file events (backend, wasm, etc)
-	FolderEvents    FolderEvent     // when directories are created/removed for architecture detection
+	AppRootDir         string               // eg: "home/user/myNewApp"
+	FilesEventHandlers []FilesEventHandlers // All file event handlers are managed here
+	FolderEvents       FolderEvent          // when directories are created/removed for architecture detection
 
 	BrowserReload func() error // when change frontend files reload browser
 
@@ -42,36 +37,17 @@ type WatchConfig struct {
 
 type DevWatch struct {
 	*WatchConfig
-	watcher                   *fsnotify.Watcher
-	depFinder                 *godepfind.GoDepFind // Dependency finder for Go projects
-	no_add_to_watch           map[string]bool
-	noAddMu                   sync.RWMutex
-	supportedAssetsExtensions []string
+	watcher         *fsnotify.Watcher
+	depFinder       *godepfind.GoDepFind // Dependency finder for Go projects
+	no_add_to_watch map[string]bool
+	noAddMu         sync.RWMutex
 	// logMu           sync.Mutex // No longer needed with Print func
 }
 
 func New(c *WatchConfig) *DevWatch {
 	dw := &DevWatch{
-		WatchConfig:               c,
-		depFinder:                 godepfind.New(c.AppRootDir),
-		supportedAssetsExtensions: []string{".html", ".css", ".js", ".svg"},
+		WatchConfig: c,
+		depFinder:   godepfind.New(c.AppRootDir),
 	}
 	return dw
-}
-
-// AddSupportedAssetsExtensions adds one or more file extensions to the supported assets list.
-// By default, the following extensions are included: .html, .css, .js, .svg
-// It ensures no duplicates are added.
-// Example: dw.AddSupportedAssetsExtensions(".png", ".jpg")
-func (dw *DevWatch) AddSupportedAssetsExtensions(exts ...string) {
-	existing := make(map[string]struct{}, len(dw.supportedAssetsExtensions))
-	for _, e := range dw.supportedAssetsExtensions {
-		existing[e] = struct{}{}
-	}
-	for _, ext := range exts {
-		if _, found := existing[ext]; !found {
-			dw.supportedAssetsExtensions = append(dw.supportedAssetsExtensions, ext)
-			existing[ext] = struct{}{}
-		}
-	}
 }

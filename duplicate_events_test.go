@@ -32,10 +32,10 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 	}
 
 	// Crear configuración personalizada para el test
+	countingEvent.SupportedExtensions_ = []string{".html", ".css", ".js"}
 	config := &WatchConfig{
-		AppRootDir:      tempDir,
-		FileEventAssets: countingEvent,
-		FilesEventGO:    []GoFileHandler{},
+		AppRootDir:         tempDir,
+		FilesEventHandlers: []FilesEventHandlers{countingEvent},
 		BrowserReload: func() error {
 			reloadMu.Lock()
 			reloadCount++

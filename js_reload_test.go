@@ -29,11 +29,15 @@ func TestWatchEvents_JSBrowserReloadCalled(t *testing.T) {
 
 	// Reuse TrackingFileEvent from watchEvents_test.go for asset calls tracking
 	eventTracker := &EventTracker{}
+	assetHandler := &TrackingFileEvent{
+		Tracker:              eventTracker,
+		Called:               &assetCalled,
+		SupportedExtensions_: []string{".js"},
+	}
 
 	config := &WatchConfig{
-		AppRootDir:      tempDir,
-		FileEventAssets: &TrackingFileEvent{Tracker: eventTracker, Called: &assetCalled},
-		FilesEventGO:    []GoFileHandler{},
+		AppRootDir:         tempDir,
+		FilesEventHandlers: []FilesEventHandlers{assetHandler},
 		BrowserReload: func() error {
 			atomic.AddInt64(&reloadCount, 1)
 			reloadCalled <- struct{}{}
@@ -44,8 +48,6 @@ func TestWatchEvents_JSBrowserReloadCalled(t *testing.T) {
 	}
 
 	w := New(config)
-	// Ensure .js is considered an asset for this test
-	w.supportedAssetsExtensions = []string{".js"}
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

@@ -32,11 +32,6 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 				fmt.Fprintln(h.Logger, "folder event error:", err)
 			}
 		}
-		// MEMORY REGISTER FILES IN HANDLERS
-		extension := filepath.Ext(path)
-		if slices.Contains(h.supportedAssetsExtensions, extension) {
-			err = h.FileEventAssets.NewFileEvent(fileName, extension, path, "create")
-		}
 	}
 
 	if err != nil {
@@ -65,27 +60,23 @@ func (h *DevWatch) InitialRegistration() {
 			if ferr == nil {
 				extension := filepath.Ext(path)
 
-				// Handle asset files (CSS, JS, SVG, HTML)
-				if slices.Contains(h.supportedAssetsExtensions, extension) {
-					//fmt.Fprintln(h.Logger, "InitialRegistration processing asset file:", path)
-					err = h.FileEventAssets.NewFileEvent(fileName, extension, path, "create")
-					if err != nil {
-						fmt.Fprintln(h.Logger, "InitialRegistration asset file error:", err)
-					}
-				}
+				for _, handler := range h.FilesEventHandlers {
+					if slices.Contains(handler.SupportedExtensions(), extension) {
+						var isMine = true
+						var herr error
 
-				// Handle Go files
-				if extension == ".go" {
-					for _, handler := range h.FilesEventGO {
-						isMine, herr := h.depFinder.ThisFileIsMine(handler.MainInputFileRelativePath(), path, "create")
-						if herr != nil {
-							continue // Skip errors during initial registration
+						if extension == ".go" {
+							isMine, herr = h.depFinder.ThisFileIsMine(handler.MainInputFileRelativePath(), path, "create")
+							if herr != nil {
+								fmt.Fprintln(h.Logger, "InitialRegistration go file error:", herr)
+								continue // Skip on error
+							}
 						}
+
 						if isMine {
-							//fmt.Fprintln(h.Logger, "InitialRegistration processing go file:", path, "for handler:", handler.Name())
 							err = handler.NewFileEvent(fileName, extension, path, "create")
 							if err != nil {
-								fmt.Fprintln(h.Logger, "InitialRegistration go file error:", err)
+								fmt.Fprintln(h.Logger, "InitialRegistration file error:", err)
 							}
 						}
 					}

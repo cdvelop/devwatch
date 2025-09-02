@@ -30,8 +30,11 @@ func TestNewDirectoryAfterInitialization(t *testing.T) {
 	defer watcher.Close()
 
 	// Add Go handler for comprehensive testing
-	fakeGoHandler := &FakeGoFileHandler{Called: &goEventCalled}
-	dw.FilesEventGO = []GoFileHandler{fakeGoHandler}
+	fakeGoHandler := &FakeFilesEventHandler{
+		Called:               &goEventCalled,
+		SupportedExtensions_: []string{".go"},
+	}
+	dw.FilesEventHandlers = append(dw.FilesEventHandlers, fakeGoHandler)
 	dw.BrowserReload = func() error {
 		atomic.AddInt64(&reloadCount, 1) // Thread-safe increment
 		select {
@@ -173,7 +176,14 @@ func TestDirectoryCreationWithSubdirectories(t *testing.T) {
 	dw.ExitChan <- true
 
 	// Check if the file in nested directory was detected using thread-safe access
-	_, calls := dw.FileEventAssets.(*CountingFileEvent).GetCounts()
+	var calls []string
+	// Find the CountingFileEvent handler to get its calls
+	for _, handler := range dw.FilesEventHandlers {
+		if ch, ok := handler.(*CountingFileEvent); ok {
+			_, calls = ch.GetCounts()
+			break
+		}
+	}
 	t.Logf("Asset calls: %v", calls)
 
 	deepFileDetected := false

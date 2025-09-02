@@ -10,19 +10,14 @@ fsnotify implementation Watches file system changes in a project directory, trig
 ### Main Types
 
 ```go
-// File event handler interface
-// event: create, remove, write, rename
- type FileEvent interface {
-     NewFileEvent(fileName, extension, filePath, event string) error
- }
-
-type MainHandler interface {
-	MainInputFileRelativePath() string // eg: "app/server/main.go"
-}
-
-type GoFileHandler interface {
-	MainHandler
-	FileEvent
+// FilesEventHandlers unifies asset and Go file event handling.
+// It allows handlers to specify which file extensions they support and how to process them.
+type FilesEventHandlers interface {
+	MainInputFileRelativePath() string // eg: go => "app/server/main.go" | js =>"app/pwa/public/main.js"
+	// NewFileEvent handles file events (create, remove, write, rename).
+	NewFileEvent(fileName, extension, filePath, event string) error
+	SupportedExtensions() []string // eg: [".go"], [".js",".css"], etc.
+	UnobservedFiles() []string     // eg: main.exe, main.js
 }
 
 // Folder event handler interface
@@ -33,32 +28,38 @@ type GoFileHandler interface {
 
 // Main configuration struct
  type WatchConfig struct {
-     AppRootDir      string            // Project root directory
-     FileEventAssets FileEvent         // Handler for static assets (css, js, html, etc)
-     FilesEventGO    []GoFileHandler   // Handlers for .go files (backend, wasm, etc)
-     FolderEvents    FolderEvent       // Handler for folder events
-     BrowserReload   func() error      // Function to reload the browser
-     Logger          io.Writer         // Log output
-     ExitChan        chan bool         // Channel to signal exit
-     UnobservedFiles func() []string   // Files/folders to ignore (e.g. .git, .vscode)
+     AppRootDir         string               // Project root directory
+     FilesEventHandlers []FilesEventHandlers // All file event handlers are managed here
+     FolderEvents       FolderEvent          // Handler for folder events
+     BrowserReload      func() error         // Function to reload the browser
+     Logger             io.Writer            // Log output
+     ExitChan           chan bool            // Channel to signal exit
+     UnobservedFiles    func() []string      // Files/folders to ignore (e.g. .git, .vscode)
  }
 
  type DevWatch struct {
      *WatchConfig
-     watcher         *fsnotify.Watcher
-     depFinder       *godepfind.GoDepFind // Dependency finder for Go projects
-     no_add_to_watch map[string]bool
+     // ... (internal fields)
  }
 ```
 
 ### Initialization and Usage
 
 ```go
+// Create your handlers that implement the FilesEventHandlers interface
+// Example handlers:
+// assetsHandler handles .css, .js, .html
+// goServerHandler handles .go files for the server
+// tinyWasmHandler handles .go files for wasm and .js for runtime detection
+
 // Create configuration
 cfg := &devwatch.WatchConfig{
     AppRootDir:      "/path/to/your/app",
-    FileEventAssets: yourAssetsHandler,
-    FilesEventGO:    []devwatch.GoFileHandler{yourBackendHandler, yourWasmHandler},
+    FilesEventHandlers: []devwatch.FilesEventHandlers{
+        assetsHandler,
+        goServerHandler,
+        tinyWasmHandler,
+    },
     FolderEvents:    yourFolderHandler,
     BrowserReload:   yourReloadFunc,
     Writer:          os.Stdout,
@@ -77,20 +78,11 @@ go watcher.FileWatcherStart(&wg)
 
 ### Notes
 
-- Implement your own handlers for `FileEvent`, `GoFileHandler`, and `FolderEvent` according to your application logic.
+- Implement your own handlers for `FilesEventHandlers` and `FolderEvent` according to your application logic.
+- Each handler in `FilesEventHandlers` must specify the file extensions it supports via the `SupportedExtensions()` method.
 - For `.go` files, the system automatically identifies the correct handler(s) using `godepfind` dependency logic.
+- The handlers are processed in the order they are registered in the `FilesEventHandlers` slice.
 - Use the `ExitChan` channel to stop the watcher gracefully.
-
-### AddSupportedAssetsExtensions
-
-```go
-// AddSupportedAssetsExtensions adds one or more file extensions to the supported assets list.
-// By default, the following extensions are included: .html, .css, .js, .svg
-// It ensures no duplicates are added.
-// Example:
-//   watcher.AddSupportedAssetsExtensions(".png", ".jpg", ".webp")
-func (dw *DevWatch) AddSupportedAssetsExtensions(exts ...string)
-```
 
 
 ## [Contributing](https://github.com/cdvelop/cdvelop/blob/main/CONTRIBUTING.md)
