@@ -32,7 +32,7 @@ type FilesEventHandlers interface {
      FilesEventHandlers []FilesEventHandlers // All file event handlers are managed here
      FolderEvents       FolderEvent          // Handler for folder events
      BrowserReload      func() error         // Function to reload the browser
-     Logger             io.Writer            // Log output
+     Logger             func(message ...any) // Log output
      ExitChan           chan bool            // Channel to signal exit
      UnobservedFiles    func() []string      // Files/folders to ignore (e.g. .git, .vscode)
  }
@@ -62,7 +62,7 @@ cfg := &devwatch.WatchConfig{
     },
     FolderEvents:    yourFolderHandler,
     BrowserReload:   yourReloadFunc,
-    Writer:          os.Stdout,
+    Logger:          func(message ...any) { fmt.Println(message...) },
     ExitChan:        make(chan bool),
     UnobservedFiles: func() []string { return []string{".git", ".vscode"} },
 }

@@ -1,7 +1,6 @@
 package devwatch
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,12 +14,12 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 	}
 
 	if err := h.watcher.Add(path); err != nil {
-		fmt.Fprintln(h.Logger, "Failed to add directory to watcher:", path, err)
+		h.Logger("Failed to add directory to watcher:", path, err)
 		return err
 	}
 
 	reg[path] = struct{}{}
-	fmt.Fprintln(h.Logger, "path added:", path)
+	h.Logger("path added:", path)
 
 	// Get fileName once and reuse
 	fileName, err := GetFileName(path)
@@ -29,26 +28,26 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 		if h.FolderEvents != nil {
 			err = h.FolderEvents.NewFolderEvent(fileName, path, "create")
 			if err != nil {
-				fmt.Fprintln(h.Logger, "folder event error:", err)
+				h.Logger("folder event error:", err)
 			}
 		}
 	}
 
 	if err != nil {
-		fmt.Fprintln(h.Logger, "addDirectoryToWatcher:", err)
+		h.Logger("addDirectoryToWatcher:", err)
 	}
 
 	return nil
 }
 
 func (h *DevWatch) InitialRegistration() {
-	fmt.Fprintln(h.Logger, "Registration APP ROOT DIR: "+h.AppRootDir)
+	h.Logger("Registration APP ROOT DIR: " + h.AppRootDir)
 
 	reg := make(map[string]struct{})
 
 	err := filepath.Walk(h.AppRootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			fmt.Fprintln(h.Logger, "accessing path:", path, err)
+			h.Logger("accessing path:", path, err)
 			return nil
 		}
 
@@ -68,7 +67,7 @@ func (h *DevWatch) InitialRegistration() {
 						if extension == ".go" {
 							isMine, herr = h.depFinder.ThisFileIsMine(handler.MainInputFileRelativePath(), path, "create")
 							if herr != nil {
-								fmt.Fprintln(h.Logger, "InitialRegistration go file error:", herr)
+								h.Logger("InitialRegistration go file error:", herr)
 								continue // Skip on error
 							}
 						}
@@ -76,7 +75,7 @@ func (h *DevWatch) InitialRegistration() {
 						if isMine {
 							err = handler.NewFileEvent(fileName, extension, path, "create")
 							if err != nil {
-								fmt.Fprintln(h.Logger, "InitialRegistration file error:", err)
+								h.Logger("InitialRegistration file error:", err)
 							}
 						}
 					}
@@ -87,6 +86,6 @@ func (h *DevWatch) InitialRegistration() {
 	})
 
 	if err != nil {
-		fmt.Fprintln(h.Logger, "Walking directory:", err)
+		h.Logger("Walking directory:", err)
 	}
 }

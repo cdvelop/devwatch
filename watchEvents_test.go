@@ -1,6 +1,7 @@
 package devwatch
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -91,7 +92,7 @@ func TestWatchEvents_FileRenameEvents(t *testing.T) {
 			reloadCalled <- struct{}{}
 			return nil
 		},
-		Logger:   os.Stdout,
+		Logger:   func(message ...any) { fmt.Println(message...) },
 		ExitChan: make(chan bool, 1),
 	}
 
@@ -233,7 +234,7 @@ func TestWatchEvents_RealFileRename(t *testing.T) {
 			reloadCalled <- struct{}{}
 			return nil
 		},
-		Logger:   os.Stdout,
+		Logger:   func(message ...any) { fmt.Println(message...) },
 		ExitChan: make(chan bool, 1),
 	}
 

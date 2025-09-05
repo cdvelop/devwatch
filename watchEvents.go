@@ -1,7 +1,6 @@
 package devwatch
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -18,7 +17,7 @@ func (h *DevWatch) watchEvents() {
 
 		case event, ok := <-h.watcher.Events:
 			if !ok {
-				fmt.Fprintln(h.Logger, "Error h.watcher.Events")
+				h.Logger("Error h.watcher.Events")
 				return
 			}
 
@@ -62,7 +61,7 @@ func (h *DevWatch) watchEvents() {
 
 		case err, ok := <-h.watcher.Errors:
 			if !ok {
-				fmt.Fprintln(h.Logger, "h.watcher.Errors:", err)
+				h.Logger("h.watcher.Errors:", err)
 				return
 			}
 
@@ -78,7 +77,7 @@ func (h *DevWatch) handleDirectoryEvent(fileName, eventName, eventType string) {
 	if h.FolderEvents != nil {
 		err := h.FolderEvents.NewFolderEvent(fileName, eventName, eventType)
 		if err != nil {
-			fmt.Fprintln(h.Logger, "Watch folder event error:", err)
+			h.Logger("Watch folder event error:", err)
 		}
 	}
 
@@ -101,7 +100,7 @@ func (h *DevWatch) handleDirectoryEvent(fileName, eventName, eventType string) {
 				return nil
 			})
 			if err != nil {
-				fmt.Fprintln(h.Logger, "Watch: Error walking new directory:", eventName, err)
+				h.Logger("Watch: Error walking new directory:", eventName, err)
 			}
 		}
 	}
@@ -126,7 +125,7 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 		if !isDeleteEvent && extension == ".go" {
 			isMine, herr = h.depFinder.ThisFileIsMine(handler.MainInputFileRelativePath(), eventName, eventType)
 			if herr != nil {
-				fmt.Fprintf(h.Logger, "Error from ThisFileIsMine, continuing: %v\n", herr)
+				h.Logger("Error from ThisFileIsMine, continuing: %v\n", herr)
 				continue
 			}
 		}
@@ -134,7 +133,7 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 		if isMine {
 			err := handler.NewFileEvent(fileName, extension, eventName, eventType)
 			if err != nil {
-				fmt.Fprintln(h.Logger, "Watch updating file error:", err)
+				h.Logger("Watch updating file error:", err)
 				if isGoFileEvent {
 					goHandlerError = err
 				}
