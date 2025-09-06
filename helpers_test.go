@@ -1,6 +1,7 @@
 package devwatch
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -99,7 +100,7 @@ func NewTestDevWatchForDuplication(t *testing.T, tempDir string, assetCallCount 
 		AppRootDir:         tempDir,
 		FilesEventHandlers: []FilesEventHandlers{countingEvent},
 		BrowserReload:      func() error { return nil }, // No browser reload needed for this test
-		Logger:             os.Stdout,
+		Logger:             func(message ...any) { fmt.Println(message...) },
 		ExitChan:           make(chan bool, 1),
 	}
 	w := New(config)
@@ -148,7 +149,7 @@ func NewTestDevWatch(t *testing.T, tempDir string, assetCalled, goCalled *int32,
 			reloadCalled <- struct{}{}
 			return nil
 		},
-		Logger:   os.Stdout,
+		Logger:   func(message ...any) { fmt.Println(message...) },
 		ExitChan: make(chan bool, 1),
 	}
 	w := New(config)

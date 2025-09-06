@@ -1,6 +1,7 @@
 package devwatch
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -43,7 +44,7 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 			reloadCalled <- struct{}{}
 			return nil
 		},
-		Logger:   os.Stdout,
+		Logger:   func(message ...any) { fmt.Println(message...) },
 		ExitChan: make(chan bool, 1),
 	}
 

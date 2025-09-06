@@ -1,7 +1,6 @@
 package devwatch
 
 import (
-	"io"
 	"sync"
 
 	"github.com/cdvelop/godepfind"
@@ -30,9 +29,9 @@ type WatchConfig struct {
 
 	BrowserReload func() error // when change frontend files reload browser
 
-	Logger          io.Writer       // For logging output
-	ExitChan        chan bool       // global channel to signal the exit
-	UnobservedFiles func() []string // files that are not observed by the watcher eg: ".git", ".gitignore", ".vscode",  "examples",
+	Logger          func(message ...any) // For logging output
+	ExitChan        chan bool            // global channel to signal the exit
+	UnobservedFiles func() []string      // files that are not observed by the watcher eg: ".git", ".gitignore", ".vscode",  "examples",
 }
 
 type DevWatch struct {
