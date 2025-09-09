@@ -2,6 +2,7 @@ package devwatch
 
 import (
 	"sync"
+	"time"
 
 	"github.com/cdvelop/godepfind"
 	"github.com/fsnotify/fsnotify"
@@ -40,6 +41,9 @@ type DevWatch struct {
 	depFinder       *godepfind.GoDepFind // Dependency finder for Go projects
 	no_add_to_watch map[string]bool
 	noAddMu         sync.RWMutex
+	// reload timer to debounce browser reloads across multiple events
+	reloadTimer *time.Timer
+	reloadMutex sync.Mutex
 	// logMu           sync.Mutex // No longer needed with Print func
 }
 

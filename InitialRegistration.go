@@ -47,7 +47,7 @@ func (h *DevWatch) InitialRegistration() {
 
 	err := filepath.Walk(h.AppRootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			h.Logger("accessing path:", path, err)
+			h.Logger("accessing path error:", path, err)
 			return nil
 		}
 

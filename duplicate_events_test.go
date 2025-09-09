@@ -105,14 +105,14 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 	t.Logf("Browser reload was called %d times", finalReloadCount)
 
 	// Verificar duplicación
-	t.Logf("Expected: 2 asset calls (one for rapid events batch, one for delayed event)")
-	if finalCallCount == 2 {
-		t.Log("✓ Asset handler called exactly twice - debouncing working correctly")
-	} else if finalCallCount > 2 {
-		t.Errorf("BUG DETECTED: Asset handler was called %d times, expected 2. Debouncing not working properly!", finalCallCount)
-		t.Errorf("Duplicate calls were: %v", finalCalls)
+	t.Logf("Expected: 1 asset call (gating is 1s, rapid subsequent events are ignored)")
+	if finalCallCount == 1 {
+		t.Log("✓ Asset handler called exactly once - gating working correctly")
+	} else if finalCallCount > 1 {
+		t.Errorf("BUG DETECTED: Asset handler was called %d times, expected 1. Debouncing not working properly!", finalCallCount)
+		t.Errorf("Calls were: %v", finalCalls)
 	} else {
-		t.Errorf("Asset handler was called only %d times, expected 2. Some events may be missing!", finalCallCount)
+		t.Errorf("Asset handler was called only %d times, expected 1. Some events may be missing!", finalCallCount)
 	}
 }
 

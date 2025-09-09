@@ -11,6 +11,20 @@ import (
 func (h *DevWatch) watchEvents() {
 	// Use per-file debouncing like the original working implementation
 	lastActions := make(map[string]time.Time)
+	// create a stopped reload timer and a single goroutine that will handle its firing.
+	h.reloadMutex.Lock()
+	if h.reloadTimer == nil {
+		h.reloadTimer = time.NewTimer(0)
+		h.reloadTimer.Stop()
+		// goroutine to wait on timer events and invoke reload
+		go func(t *time.Timer) {
+			for {
+				<-t.C
+				h.triggerBrowserReload()
+			}
+		}(h.reloadTimer)
+	}
+	h.reloadMutex.Unlock()
 
 	for {
 		select {
@@ -21,14 +35,11 @@ func (h *DevWatch) watchEvents() {
 				return
 			}
 
-			// Per-file debounce logic from original working implementation
-			if lastTime, exists := lastActions[event.Name]; exists && time.Since(lastTime) <= 100*time.Millisecond {
-				// Skip this event - it's within 100ms of the last event for this file
+			// Per-file gating: only process if we never saw this file, or last action > 1s
+			if lastTime, exists := lastActions[event.Name]; exists && time.Since(lastTime) <= 1*time.Second {
+				// Skip this event - we've processed this file recently
 				continue
 			}
-
-			// Register this action for debouncing
-			lastActions[event.Name] = time.Now()
 
 			// create, write, rename, remove
 			eventType := strings.ToLower(event.Op.String())
@@ -59,6 +70,9 @@ func (h *DevWatch) watchEvents() {
 			// Handle file events (both delete and non-delete)
 			h.handleFileEvent(fileName, event.Name, eventType, isDeleteEvent)
 
+			// Register the last action timestamp for this file (matches original logic)
+			lastActions[event.Name] = time.Now()
+
 		case err, ok := <-h.watcher.Errors:
 			if !ok {
 				h.Logger("h.watcher.Errors:", err)
@@ -67,6 +81,7 @@ func (h *DevWatch) watchEvents() {
 
 		case <-h.ExitChan:
 			h.watcher.Close()
+			h.stopReload()
 			return
 		}
 	}
@@ -143,10 +158,10 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 		}
 	}
 
-	// For non-go files, reload only if processed successfully.
-	// For go files, reload if no handler returned an error.
+	// For non-go files, schedule reload only if processed successfully.
+	// For go files, schedule reload if no handler returned an error.
 	if (isGoFileEvent && goHandlerError == nil) || (!isGoFileEvent && processedSuccessfully) {
-		h.triggerBrowserReload()
+		h.scheduleReload()
 	}
 }
 
@@ -157,5 +172,42 @@ func (h *DevWatch) triggerBrowserReload() {
 		// reload action before returning. This prevents background reload
 		// goroutines from racing with test teardown and shared counters.
 		_ = h.BrowserReload()
+	}
+}
+
+// scheduleReload resets or starts a reload timer which will call triggerBrowserReload
+// after a short debounce period. This mirrors the original implementation's
+// behavior of resetting the timer on each new event so only the last one triggers reload.
+func (h *DevWatch) scheduleReload() {
+	const wait = 50 * time.Millisecond
+
+	h.reloadMutex.Lock()
+	defer h.reloadMutex.Unlock()
+
+	if h.reloadTimer == nil {
+		h.reloadTimer = time.NewTimer(wait)
+		return
+	}
+
+	// Stop existing timer and reset
+	if !h.reloadTimer.Stop() {
+		select {
+		case <-h.reloadTimer.C:
+		default:
+		}
+	}
+	h.reloadTimer.Reset(wait)
+}
+
+// stopReload stops and clears the reload timer; used during shutdown
+func (h *DevWatch) stopReload() {
+	h.reloadMutex.Lock()
+	defer h.reloadMutex.Unlock()
+	if h.reloadTimer != nil {
+		// Ensure any pending reload is executed before shutdown. Tests may send ExitChan
+		// before debounce period elapses; call reload synchronously to flush.
+		h.triggerBrowserReload()
+		// Stop timer to avoid future firings
+		h.reloadTimer.Stop()
 	}
 }
