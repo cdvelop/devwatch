@@ -88,7 +88,7 @@ func TestWatchEvents_FileRenameEvents(t *testing.T) {
 		AppRootDir:         tempDir,
 		FilesEventHandlers: []FilesEventHandlers{assetHandler, goHandler},
 		BrowserReload: func() error {
-			reloadCount++
+			atomic.AddInt64(&reloadCount, 1) // Thread-safe increment
 			reloadCalled <- struct{}{}
 			return nil
 		},
@@ -191,7 +191,7 @@ func TestWatchEvents_FileRenameEvents(t *testing.T) {
 		t.Error("Asset handler was not called")
 	}
 
-	t.Logf("Test completed. Total events tracked: %d, BrowserReload calls: %d", len(events), reloadCount)
+	t.Logf("Test completed. Total events tracked: %d, BrowserReload calls: %d", len(events), atomic.LoadInt64(&reloadCount))
 
 	// The main verification: ensure we got at least some events to confirm the system is working
 	if len(events) == 0 {
@@ -331,7 +331,7 @@ func TestWatchEvents_RealFileRename(t *testing.T) {
 	t.Logf("  - CREATE event detected: %v", hasCreate)
 	t.Logf("  - WRITE event detected: %v", hasWrite)
 	t.Logf("  - Total events: %d", len(events))
-	t.Logf("  - Browser reload calls: %d", reloadCount)
+	t.Logf("  - Browser reload calls: %d", atomic.LoadInt64(&reloadCount))
 
 	// The test passes if we detect the rename scenario (either RENAME or CREATE events)
 	if !hasRename && !hasCreate {
