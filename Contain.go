@@ -69,6 +69,17 @@ func (h *DevWatch) Contain(path string) bool {
 	}
 	h.noAddMu.RUnlock()
 
+	// Check if the file extension matches any ignored pattern
+	ext := filepath.Ext(normPath)
+	if ext != "" {
+		h.noAddMu.RLock()
+		if _, exists := h.no_add_to_watch[ext]; exists {
+			h.noAddMu.RUnlock()
+			return true
+		}
+		h.noAddMu.RUnlock()
+	}
+
 	// ignore other hidden files (but not .git which is handled above)
 	baseName := filepath.Base(normPath)
 	if strings.HasPrefix(baseName, ".") && baseName != ".git" {

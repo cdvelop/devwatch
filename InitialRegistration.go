@@ -43,6 +43,27 @@ func (h *DevWatch) addDirectoryToWatcher(path string, reg map[string]struct{}) e
 func (h *DevWatch) InitialRegistration() {
 	h.Logger("Registration APP ROOT DIR: " + h.AppRootDir)
 
+	// Initialize no_add_to_watch map and load unobserved files from all handlers
+	h.noAddMu.Lock()
+	if h.no_add_to_watch == nil {
+		h.no_add_to_watch = make(map[string]bool)
+	}
+
+	// Load unobserved files from WatchConfig if available
+	if h.UnobservedFiles != nil {
+		for _, file := range h.UnobservedFiles() {
+			h.no_add_to_watch[file] = true
+		}
+	}
+
+	// Load unobserved files from each FilesEventHandler
+	for _, handler := range h.FilesEventHandlers {
+		for _, file := range handler.UnobservedFiles() {
+			h.no_add_to_watch[file] = true
+		}
+	}
+	h.noAddMu.Unlock()
+
 	reg := make(map[string]struct{})
 
 	err := filepath.Walk(h.AppRootDir, func(path string, info os.FileInfo, err error) error {
@@ -54,6 +75,11 @@ func (h *DevWatch) InitialRegistration() {
 		if info.IsDir() && !h.Contain(path) {
 			h.addDirectoryToWatcher(path, reg)
 		} else if !info.IsDir() {
+			// Check if this file should be ignored before processing
+			if h.Contain(path) {
+				return nil // Skip ignored files
+			}
+
 			// Process existing files during initial registration
 			fileName, ferr := GetFileName(path)
 			if ferr == nil {
