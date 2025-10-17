@@ -31,14 +31,30 @@ func (h *DevWatch) Contain(path string) bool {
 	}
 	h.noAddMu.Unlock()
 
+	// Try to convert absolute path to relative path for matching
+	// UnobservedFiles() returns relative paths, so we need to compare relative to relative
+	relPath := normPath
+	if h.AppRootDir != "" {
+		normalizedRoot := strings.ReplaceAll(h.AppRootDir, "\\", "/")
+		// Ensure root doesn't end with /
+		normalizedRoot = strings.TrimSuffix(normalizedRoot, "/")
+		if strings.HasPrefix(normPath, normalizedRoot+"/") {
+			relPath = strings.TrimPrefix(normPath, normalizedRoot+"/")
+		}
+	}
+
 	// Check for exact match against the full paths in the ignore list FIRST
 	h.noAddMu.RLock()
+	// Try both absolute and relative paths
 	if _, exists := h.no_add_to_watch[normPath]; exists {
 		h.noAddMu.RUnlock()
-		/* if strings.Contains(normPath, ".git") && h.Writer != nil {
-			fmt.Fprintf(h.Writer, "[DEBUG] Exact match found for %s - RETURNING TRUE\n", normPath)
-		} */
 		return true
+	}
+	if relPath != normPath {
+		if _, exists := h.no_add_to_watch[relPath]; exists {
+			h.noAddMu.RUnlock()
+			return true
+		}
 	}
 
 	// Split the normalized path into components and check each part
