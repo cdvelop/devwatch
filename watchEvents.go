@@ -9,8 +9,12 @@ import (
 )
 
 func (h *DevWatch) watchEvents() {
-	// Use per-file debouncing like the original working implementation
-	lastActions := make(map[string]time.Time)
+	// Track last event START time per file for debouncing
+	// Use a shorter debounce (100ms) to allow rapid development iterations
+	// while still filtering duplicate OS events
+	lastEventStart := make(map[string]time.Time)
+	const debounceWindow = 100 * time.Millisecond
+
 	// create a stopped reload timer and a single goroutine that will handle its firing.
 	h.reloadMutex.Lock()
 	if h.reloadTimer == nil {
@@ -35,11 +39,18 @@ func (h *DevWatch) watchEvents() {
 				return
 			}
 
-			// Per-file gating: only process if we never saw this file, or last action > 1s
-			if lastTime, exists := lastActions[event.Name]; exists && time.Since(lastTime) <= 1*time.Second {
-				// Skip this event - we've processed this file recently
+			// Debounce: skip if we processed this file very recently (within 100ms)
+			// This filters duplicate OS events while allowing rapid development iterations
+			now := time.Now()
+			if lastTime, exists := lastEventStart[event.Name]; exists && now.Sub(lastTime) <= debounceWindow {
+				// Skip this event - we just processed this file (< 100ms ago)
 				continue
 			}
+
+			// Record event start time BEFORE processing
+			// This ensures the debounce window starts from when we BEGIN handling,
+			// not when we finish (which could be much later for slow operations)
+			lastEventStart[event.Name] = now
 
 			// create, write, rename, remove
 			eventType := strings.ToLower(event.Op.String())
@@ -70,8 +81,9 @@ func (h *DevWatch) watchEvents() {
 			// Handle file events (both delete and non-delete)
 			h.handleFileEvent(fileName, event.Name, eventType, isDeleteEvent)
 
-			// Register the last action timestamp for this file (matches original logic)
-			lastActions[event.Name] = time.Now()
+			// Note: We don't update lastEventStart here because we already did it
+			// before processing (above). This ensures debounce is based on event
+			// START time, not completion time.
 
 		case err, ok := <-h.watcher.Errors:
 			if !ok {
