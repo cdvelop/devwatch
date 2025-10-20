@@ -39,19 +39,6 @@ func (h *DevWatch) watchEvents() {
 				return
 			}
 
-			// Debounce: skip if we processed this file very recently (within 100ms)
-			// This filters duplicate OS events while allowing rapid development iterations
-			now := time.Now()
-			if lastTime, exists := lastEventStart[event.Name]; exists && now.Sub(lastTime) <= debounceWindow {
-				// Skip this event - we just processed this file (< 100ms ago)
-				continue
-			}
-
-			// Record event start time BEFORE processing
-			// This ensures the debounce window starts from when we BEGIN handling,
-			// not when we finish (which could be much later for slow operations)
-			lastEventStart[event.Name] = now
-
 			// create, write, rename, remove
 			eventType := strings.ToLower(event.Op.String())
 			isDeleteEvent := eventType == "remove" || eventType == "delete"
@@ -78,12 +65,22 @@ func (h *DevWatch) watchEvents() {
 				continue
 			}
 
-			// Handle file events (both delete and non-delete)
-			h.handleFileEvent(fileName, event.Name, eventType, isDeleteEvent)
+			// CRITICAL: Debounce check must be AFTER all filtering but BEFORE processing
+			// This ensures we only debounce events that will actually be processed
+			now := time.Now()
+			if lastTime, exists := lastEventStart[event.Name]; exists && now.Sub(lastTime) <= debounceWindow {
+				// Skip this event - we just processed this file (< 100ms ago)
+				continue
+			}
 
-			// Note: We don't update lastEventStart here because we already did it
-			// before processing (above). This ensures debounce is based on event
-			// START time, not completion time.
+			// Record event start time - this will block future events for this file
+			// for debounceWindow duration (100ms) to filter duplicate OS events
+			lastEventStart[event.Name] = now
+
+			// Handle file events (both delete and non-delete)
+			// NOTE: This call blocks during compilation! Events arriving during
+			// compilation will queue up in the watcher.Events channel.
+			h.handleFileEvent(fileName, event.Name, eventType, isDeleteEvent)
 
 		case err, ok := <-h.watcher.Errors:
 			if !ok {

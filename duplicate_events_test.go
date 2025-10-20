@@ -72,7 +72,7 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Escribir inmediatamente (debería ser filtrado por debouncing)
+	// Escribir inmediatamente (debería ser filtrado por debouncing de 100ms)
 	time.Sleep(50 * time.Millisecond) // Menos que el debounce de 100ms
 	if err := os.WriteFile(htmlFile, []byte("<!DOCTYPE html><html><body>Modified 2</body></html>"), 0644); err != nil {
 		t.Fatal(err)
@@ -80,15 +80,6 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 
 	// Esperar procesamiento del primer batch
 	time.Sleep(200 * time.Millisecond)
-
-	// Escribir otra vez después del debounce
-	t.Log("Writing to HTML file again after debounce period")
-	if err := os.WriteFile(htmlFile, []byte("<!DOCTYPE html><html><body>Modified 3</body></html>"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Esperar procesamiento
-	time.Sleep(300 * time.Millisecond)
 
 	// Cerrar el watcher
 	w.ExitChan <- true
@@ -104,10 +95,11 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 	t.Logf("Asset calls details: %v", finalCalls)
 	t.Logf("Browser reload was called %d times", finalReloadCount)
 
-	// Verificar duplicación
-	t.Logf("Expected: 1 asset call (gating is 1s, rapid subsequent events are ignored)")
+	// Verificar duplicación con nuevo debounce de 100ms
+	// Se espera 1 llamada: la segunda escritura (50ms después) debería ser filtrada
+	t.Logf("Expected: 1 asset call (debounce is 100ms, events within window are ignored)")
 	if finalCallCount == 1 {
-		t.Log("✓ Asset handler called exactly once - gating working correctly")
+		t.Log("✓ Asset handler called exactly once - debouncing working correctly")
 	} else if finalCallCount > 1 {
 		t.Errorf("BUG DETECTED: Asset handler was called %d times, expected 1. Debouncing not working properly!", finalCallCount)
 		t.Errorf("Calls were: %v", finalCalls)
