@@ -97,7 +97,7 @@ func main() {
 			now := time.Now()
 			compilationTimes = append(compilationTimes, now)
 			timesMutex.Unlock()
-			
+
 			if count == 1 {
 				t.Logf("[t=0.000s] Compilation %d STARTED", count)
 			} else {
@@ -224,7 +224,7 @@ func main() {
 	if compilations != 5 {
 		t.Errorf("❌ INCONSISTENT BEHAVIOR: Expected 5 compilations, got %d", compilations)
 		t.Errorf("   This matches user's report: sometimes compiles, sometimes doesn't")
-		
+
 		// Analyze which edits were skipped
 		for i := 0; i < 5; i++ {
 			editNum := i + 1

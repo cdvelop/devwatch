@@ -1,6 +1,8 @@
 package devwatch
 
 import (
+	"crypto/sha256"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -8,12 +10,17 @@ import (
 	"time"
 )
 
+// fileEventKey stores both time and content hash for smarter debouncing
+type fileEventKey struct {
+	lastTime time.Time
+	lastHash [32]byte
+}
+
 func (h *DevWatch) watchEvents() {
-	// Track last event START time per file for debouncing
-	// Use a shorter debounce (100ms) to allow rapid development iterations
-	// while still filtering duplicate OS events
-	lastEventStart := make(map[string]time.Time)
-	const debounceWindow = 100 * time.Millisecond
+	// Track last event with content hash for smart debouncing
+	// This allows rapid edits while filtering duplicate OS events
+	lastEventInfo := make(map[string]fileEventKey)
+	const debounceWindow = 50 * time.Millisecond // Reduced for faster response
 
 	// create a stopped reload timer and a single goroutine that will handle its firing.
 	h.reloadMutex.Lock()
@@ -65,17 +72,38 @@ func (h *DevWatch) watchEvents() {
 				continue
 			}
 
-			// CRITICAL: Debounce check must be AFTER all filtering but BEFORE processing
-			// This ensures we only debounce events that will actually be processed
+			// SMART DEBOUNCE: Filter duplicate OS events but allow rapid user edits
+			// Strategy: Compare both time AND file content hash
 			now := time.Now()
-			if lastTime, exists := lastEventStart[event.Name]; exists && now.Sub(lastTime) <= debounceWindow {
-				// Skip this event - we just processed this file (< 100ms ago)
-				continue
+			shouldProcess := true
+
+			if lastInfo, exists := lastEventInfo[event.Name]; exists {
+				timeSinceLastEvent := now.Sub(lastInfo.lastTime)
+
+				// If event is very recent (< 50ms), check if content changed
+				if timeSinceLastEvent <= debounceWindow {
+					// Calculate current file hash
+					currentHash := h.calculateFileHash(event.Name)
+
+					// Only skip if BOTH time is recent AND content is identical
+					// This filters duplicate OS events but allows rapid real edits
+					if currentHash == lastInfo.lastHash {
+						// Same content, same file, within debounce window = duplicate event
+						shouldProcess = false
+					}
+					// If hash is different, it's a real edit - process it!
+				}
 			}
 
-			// Record event start time - this will block future events for this file
-			// for debounceWindow duration (100ms) to filter duplicate OS events
-			lastEventStart[event.Name] = now
+			if !shouldProcess {
+				continue // Skip duplicate event
+			}
+
+			// Record event with content hash for next comparison
+			lastEventInfo[event.Name] = fileEventKey{
+				lastTime: now,
+				lastHash: h.calculateFileHash(event.Name),
+			}
 
 			// Handle file events (both delete and non-delete)
 			// NOTE: This call blocks during compilation! Events arriving during
@@ -230,4 +258,25 @@ func (h *DevWatch) stopReload() {
 		// If Stop() returned true, timer was active and is now stopped
 		// Don't trigger reload in this case
 	}
+}
+
+// calculateFileHash computes SHA256 hash of file content for smart debouncing
+// Returns zero hash if file cannot be read (will be treated as different)
+func (h *DevWatch) calculateFileHash(filePath string) [32]byte {
+	var zeroHash [32]byte
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return zeroHash // File doesn't exist or can't be read
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return zeroHash // Error reading file
+	}
+
+	var hash [32]byte
+	copy(hash[:], hasher.Sum(nil))
+	return hash
 }

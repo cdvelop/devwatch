@@ -66,45 +66,75 @@ func TestWatchEvents_RealFileDuplicateBug(t *testing.T) {
 	reloadCount = 0
 	reloadMu.Unlock()
 
-	// Escribir al archivo REAL con eventos muy rápidos para probar debouncing
-	t.Log("Writing to real HTML file - rapid events")
+	// TEST 1: Escribir el MISMO contenido rápidamente (debe filtrar duplicados)
+	t.Log("Test 1: Writing SAME content twice - should filter duplicate")
+	sameContent := []byte("<!DOCTYPE html><html><body>Same Content</body></html>")
+	if err := os.WriteFile(htmlFile, sameContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Escribir el MISMO contenido inmediatamente (debe ser filtrado)
+	time.Sleep(20 * time.Millisecond) // Menos que el debounce de 50ms
+	if err := os.WriteFile(htmlFile, sameContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Esperar procesamiento
+	time.Sleep(150 * time.Millisecond)
+
+	callCount1, calls1 := countingEvent.GetCounts()
+	t.Logf("After same content writes: %d calls (expected: 1)", callCount1)
+	if callCount1 != 1 {
+		t.Errorf("❌ Same content: Expected 1 call, got %d. Calls: %v", callCount1, calls1)
+	} else {
+		t.Log("✅ Same content correctly filtered duplicate event")
+	}
+
+	// Reset for test 2
+	countingEvent.Reset()
+	time.Sleep(100 * time.Millisecond)
+
+	// TEST 2: Escribir DIFERENTE contenido rápidamente (debe procesar ambos)
+	t.Log("Test 2: Writing DIFFERENT content rapidly - should process both")
 	if err := os.WriteFile(htmlFile, []byte("<!DOCTYPE html><html><body>Modified 1</body></html>"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Escribir inmediatamente (debería ser filtrado por debouncing de 100ms)
-	time.Sleep(50 * time.Millisecond) // Menos que el debounce de 100ms
+	// Escribir contenido DIFERENTE inmediatamente (debe procesarse)
+	time.Sleep(20 * time.Millisecond) // Menos que debounce pero contenido diferente
 	if err := os.WriteFile(htmlFile, []byte("<!DOCTYPE html><html><body>Modified 2</body></html>"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Esperar procesamiento del primer batch
+	// Esperar procesamiento del segundo batch
 	time.Sleep(200 * time.Millisecond)
 
 	// Cerrar el watcher
 	w.ExitChan <- true
 	wg.Wait()
 
-	// Analizar resultados de manera thread-safe
+	// Analizar resultados finales
 	finalCallCount, finalCalls := countingEvent.GetCounts()
 	reloadMu.Lock()
 	finalReloadCount := reloadCount
 	reloadMu.Unlock()
 
-	t.Logf("Asset handler was called %d times", finalCallCount)
+	t.Logf("After different content writes: %d calls", finalCallCount)
 	t.Logf("Asset calls details: %v", finalCalls)
 	t.Logf("Browser reload was called %d times", finalReloadCount)
 
-	// Verificar duplicación con nuevo debounce de 100ms
-	// Se espera 1 llamada: la segunda escritura (50ms después) debería ser filtrada
-	t.Logf("Expected: 1 asset call (debounce is 100ms, events within window are ignored)")
-	if finalCallCount == 1 {
-		t.Log("✓ Asset handler called exactly once - debouncing working correctly")
-	} else if finalCallCount > 1 {
-		t.Errorf("BUG DETECTED: Asset handler was called %d times, expected 1. Debouncing not working properly!", finalCallCount)
-		t.Errorf("Calls were: %v", finalCalls)
+	// Con smart debounce basado en hash:
+	// - Mismo contenido dentro de 50ms = 1 llamada (filtrado)
+	// - Contenido diferente = 2 llamadas (ambas procesadas)
+	t.Log("Expected: 2 calls (smart debounce filters same content, allows different content)")
+	if finalCallCount == 2 {
+		t.Log("✅ Smart debounce working: different content processed, duplicates filtered")
+	} else if finalCallCount == 1 {
+		t.Errorf("❌ Only 1 call - second edit was incorrectly filtered despite different content!")
+		t.Errorf("This is the OLD bug - rapid edits being lost")
 	} else {
-		t.Errorf("Asset handler was called only %d times, expected 1. Some events may be missing!", finalCallCount)
+		t.Errorf("Unexpected call count: %d (expected 2)", finalCallCount)
+		t.Errorf("Calls were: %v", finalCalls)
 	}
 }
 
