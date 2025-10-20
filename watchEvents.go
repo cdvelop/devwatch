@@ -204,10 +204,21 @@ func (h *DevWatch) stopReload() {
 	h.reloadMutex.Lock()
 	defer h.reloadMutex.Unlock()
 	if h.reloadTimer != nil {
-		// Ensure any pending reload is executed before shutdown. Tests may send ExitChan
-		// before debounce period elapses; call reload synchronously to flush.
-		h.triggerBrowserReload()
-		// Stop timer to avoid future firings
-		h.reloadTimer.Stop()
+		// Only trigger reload if timer was actually programmed (not stopped)
+		// Check if there's a pending reload by trying to stop the timer
+		if !h.reloadTimer.Stop() {
+			// Timer already fired or was never started, check channel
+			select {
+			case <-h.reloadTimer.C:
+				// Timer fired but reload not yet called, trigger it now
+				h.reloadMutex.Unlock() // Unlock before calling reload to avoid deadlock
+				h.triggerBrowserReload()
+				h.reloadMutex.Lock() // Re-lock before returning
+			default:
+				// Timer was stopped or never programmed, don't reload
+			}
+		}
+		// If Stop() returned true, timer was active and is now stopped
+		// Don't trigger reload in this case
 	}
 }
