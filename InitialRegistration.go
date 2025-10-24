@@ -93,7 +93,7 @@ func (h *DevWatch) InitialRegistration() {
 						if extension == ".go" {
 							isMine, herr = h.depFinder.ThisFileIsMine(handler.MainInputFileRelativePath(), path, "create")
 							if herr != nil {
-								h.Logger("InitialRegistration go file error:", herr)
+								//h.Logger("InitialRegistration go file error:", herr)
 								continue // Skip on error
 							}
 						}
