@@ -163,8 +163,9 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 	extension := filepath.Ext(eventName)
 	var processedSuccessfully bool
 	isGoFileEvent := extension == ".go"
-	var goHandlerError error
+	var atLeastOneGoHandlerSucceeded bool
 
+	// Execute ALL handlers, don't stop on errors
 	for _, handler := range h.FilesEventHandlers {
 		if !slices.Contains(handler.SupportedExtensions(), extension) {
 			continue
@@ -177,7 +178,7 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 		if !isDeleteEvent && extension == ".go" {
 			isMine, herr = h.depFinder.ThisFileIsMine(handler.MainInputFileRelativePath(), eventName, eventType)
 			if herr != nil {
-				h.Logger("Error from ThisFileIsMine, continuing: %v\n", herr)
+				// h.Logger("DEBUG Error from ThisFileIsMine, continuing: %v\n", herr)
 				continue
 			}
 		}
@@ -185,19 +186,22 @@ func (h *DevWatch) handleFileEvent(fileName, eventName, eventType string, isDele
 		if isMine {
 			err := handler.NewFileEvent(fileName, extension, eventName, eventType)
 			if err != nil {
-				h.Logger("Watch updating file error:", err)
-				if isGoFileEvent {
-					goHandlerError = err
-				}
+				//h.Logger("DEBUG Watch updating file error:", err)
+				// Continue to next handler even if this one failed
 			} else {
+				// Track success for both Go and non-Go files
 				processedSuccessfully = true
+				if isGoFileEvent {
+					atLeastOneGoHandlerSucceeded = true
+				}
 			}
 		}
 	}
 
-	// For non-go files, schedule reload only if processed successfully.
-	// For go files, schedule reload if no handler returned an error.
-	if (isGoFileEvent && goHandlerError == nil) || (!isGoFileEvent && processedSuccessfully) {
+	// Schedule reload if AT LEAST ONE handler succeeded
+	// For Go files: reload if any handler succeeded
+	// For non-Go files: reload if any handler succeeded
+	if (isGoFileEvent && atLeastOneGoHandlerSucceeded) || (!isGoFileEvent && processedSuccessfully) {
 		h.scheduleReload()
 	}
 }

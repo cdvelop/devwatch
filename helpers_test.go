@@ -138,7 +138,7 @@ func NewTestDevWatch(t *testing.T, tempDir string, assetCalled, goCalled *int32,
 	goHandler := &FakeFilesEventHandler{
 		Called:               goCalled,
 		SupportedExtensions_: []string{".go"},
-		MainInputFile:        "fake/main.go",
+		MainInputFile:        "file.go", // Match the actual file created by CreateTestFiles
 	}
 
 	config := &WatchConfig{
